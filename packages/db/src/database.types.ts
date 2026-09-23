@@ -5,7 +5,7 @@
 // (supabase gen types typescript --local > src/database.types.ts)
 //
 // ⚠️ Ce fichier est un squelette manuel aligné sur les migrations
-// 0001–0009. Régénérez-le avec la CLI Supabase dès qu'un projet local
+// 0001–0011. Régénérez-le avec la CLI Supabase dès qu'un projet local
 // ou hébergé est disponible pour obtenir les types exacts de la base.
 // ============================================================
 
@@ -215,6 +215,74 @@ export interface SavedSearch {
   created_at: string;
 }
 
+export type ClaimStatus =
+  | 'DRAFT'
+  | 'QUESTIONS_SENT'
+  | 'ANSWERS_SUBMITTED'
+  | 'UNDER_REVIEW'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'DISPUTED'
+  | 'EXPIRED';
+
+export interface Claim {
+  id: string;
+  match_id: string;
+  claimant_id: string;
+  status: ClaimStatus;
+  score: number;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  rejection_reason: string | null;
+  attempt_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface VerificationQuestion {
+  id: string;
+  category_id: string;
+  code: string;
+  prompt_fr: string;
+  answer_kind: 'text' | 'number' | 'date' | 'choice';
+  choices: string[] | null;
+  weight: number;
+  is_required: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface VerificationAnswerRow {
+  id: string;
+  claim_id: string;
+  question_id: string;
+  answer: string | null;
+  answer_photo: string | null;
+  is_correct: boolean | null;
+  points_awarded: number;
+  created_at: string;
+}
+
+export interface FraudCase {
+  id: string;
+  subject_user_id: string | null;
+  kind: string | null;
+  signals: Json;
+  risk_score: number;
+  status: string;
+  assigned_to: string | null;
+  resolution: string | null;
+  created_at: string;
+  closed_at: string | null;
+}
+
+export interface FoundItemSecret {
+  found_item_id: string;
+  answers: Json;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -257,6 +325,31 @@ export interface Database {
         Row: SavedSearch;
         Insert: Partial<SavedSearch> & { user_id: string };
         Update: Partial<SavedSearch>;
+      };
+      claims: {
+        Row: Claim;
+        Insert: Partial<Claim> & { match_id: string; claimant_id: string };
+        Update: Partial<Claim>;
+      };
+      verification_questions: {
+        Row: VerificationQuestion;
+        Insert: Partial<VerificationQuestion> & { code: string; prompt_fr: string };
+        Update: Partial<VerificationQuestion>;
+      };
+      verification_answers: {
+        Row: VerificationAnswerRow;
+        Insert: Partial<VerificationAnswerRow> & { claim_id: string; question_id: string };
+        Update: Partial<VerificationAnswerRow>;
+      };
+      fraud_cases: {
+        Row: FraudCase;
+        Insert: Partial<FraudCase>;
+        Update: Partial<FraudCase>;
+      };
+      found_item_secrets: {
+        Row: FoundItemSecret;
+        Insert: FoundItemSecret;
+        Update: Partial<FoundItemSecret>;
       };
     };
     Views: {
@@ -304,6 +397,7 @@ export interface Database {
       item_status: ItemStatus;
       match_level: MatchLevel;
       match_status: MatchStatus;
+      claim_status: ClaimStatus;
     };
     CompositeTypes: Record<string, never>;
   };

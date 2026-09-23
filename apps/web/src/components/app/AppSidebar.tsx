@@ -1,11 +1,13 @@
 'use client';
 
+import { ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 import { buttonClasses, cn } from '@liguita/ui';
 
-import { APP_NAV } from '../../lib/navigation';
+import { useAuth } from '../../lib/auth/auth-context';
+import { APP_NAV, type NavItem } from '../../lib/navigation';
 import { Logo } from '../brand/Logo';
 
 /**
@@ -14,6 +16,14 @@ import { Logo } from '../brand/Logo';
  */
 export function AppSidebar() {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const isStaff = user?.app_role === 'MODERATOR' || user?.app_role === 'ADMIN';
+  const moderationItem: NavItem = {
+    href: '/app/moderation',
+    label: 'Modération',
+    icon: ShieldAlert,
+  };
+  const navItems: readonly NavItem[] = isStaff ? [...APP_NAV, moderationItem] : APP_NAV;
 
   return (
     <aside
@@ -28,7 +38,7 @@ export function AppSidebar() {
 
       <nav className="flex-1 overflow-y-auto p-3">
         <ul className="flex flex-col gap-1">
-          {APP_NAV.map((item) => {
+          {navItems.map((item) => {
             const isActive =
               item.href === '/app' ? pathname === '/app' : pathname.startsWith(item.href);
             const Icon = item.icon;

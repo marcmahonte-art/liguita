@@ -104,8 +104,31 @@ export interface VerificationOutcome {
   readonly missingRequiredIds: readonly string[];
 }
 
-/** Seuil au-delà duquel la propriété est considérée comme établie. */
-export const VERIFICATION_THRESHOLD = 0.7;
+/** Seuil d'approbation automatique (§7.5 : score ≥ 80 %). */
+export const VERIFICATION_THRESHOLD = 0.8;
+
+/** Seuil minimal de revue manuelle : en dessous, la tentative est refusée. */
+export const VERIFICATION_REVIEW_THRESHOLD = 0.5;
+
+/** Nombre maximal de tentatives avant verrouillage de la correspondance. */
+export const VERIFICATION_MAX_ATTEMPTS = 3;
+
+/** Décision du barème (§7.5). */
+export type VerificationDecision = 'APPROVED' | 'UNDER_REVIEW' | 'REJECTED';
+
+/**
+ * Applique le barème de notation du plan §7.5.
+ *
+ * | Score        | Décision       |
+ * | ≥ 80         | APPROVED       |
+ * | 50 – 79      | UNDER_REVIEW   |
+ * | < 50         | REJECTED       |
+ */
+export function classifyVerification(score: number): VerificationDecision {
+  if (score >= VERIFICATION_THRESHOLD) return 'APPROVED';
+  if (score >= VERIFICATION_REVIEW_THRESHOLD) return 'UNDER_REVIEW';
+  return 'REJECTED';
+}
 
 /**
  * Note une série de réponses.

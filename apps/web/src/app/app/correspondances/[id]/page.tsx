@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { ArrowLeft, ShieldCheck, ThumbsDown, ThumbsUp } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
@@ -193,14 +193,12 @@ export default function MatchDetailPage() {
         </div>
 
         <div className="mt-6 flex flex-wrap gap-3 border-t border-ink-100 pt-4">
-          <button
-            type="button"
-            disabled={isPending || item.status === 'CLAIMED'}
-            onClick={() => handleStatus('CLAIMED')}
+          <Link
+            href={`/app/correspondances/${item.id}/verification`}
             className={buttonClasses({ variant: 'primary' })}
           >
-            <ThumbsUp size={16} /> C'est mon objet
-          </button>
+            <ShieldCheck size={16} /> Vérifier ma propriété
+          </Link>
           <button
             type="button"
             disabled={isPending || item.status === 'REJECTED'}
@@ -209,9 +207,14 @@ export default function MatchDetailPage() {
           >
             <ThumbsDown size={16} /> Pas le mien
           </button>
-          <Link href={`/declarer/perdu?match=${item.id}`} className={buttonClasses({ variant: 'ghost' })}>
-            Vérifier ma propriété →
-          </Link>
+          <button
+            type="button"
+            disabled={isPending || item.status === 'CLAIMED'}
+            onClick={() => handleStatus('CLAIMED')}
+            className={buttonClasses({ variant: 'ghost' })}
+          >
+            <ThumbsUp size={16} /> C'est mon objet
+          </button>
         </div>
       </div>
     </div>

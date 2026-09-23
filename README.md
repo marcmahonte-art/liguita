@@ -141,12 +141,12 @@ faire passer les 18 cas de test dorés **sans en modifier aucun**.
 
 | Phase | Périmètre | État |
 |---|---|---|
-| **Sprint 0** | Fondations : monorepo, design system, moteurs, socle web | 🚧 en cours |
-| Sprint 1 | Authentification (téléphone + OTP) | ⬜ |
-| Sprint 2 | Objets perdus et trouvés | ⬜ |
-| Sprint 3 | Recherche | ⬜ |
-| Sprint 4 | Correspondance | ⬜ |
-| Sprint 5 | Vérification de propriété | ⬜ |
+| **Sprint 0** | Fondations : monorepo, design system, moteurs, socle web | ✅ |
+| Sprint 1 | Authentification (téléphone + OTP) | ✅ |
+| Sprint 2 | Objets perdus et trouvés | ✅ |
+| Sprint 3 | Recherche | ✅ |
+| Sprint 4 | Correspondance | ✅ |
+| Sprint 5 | Vérification de propriété | 🚧 en cours |
 | Sprint 6 | Tarification et paiement | ⬜ |
 | Sprint 7 | Mise en relation et restitution | ⬜ |
 | Sprint 8 | Console Business | ⬜ |
