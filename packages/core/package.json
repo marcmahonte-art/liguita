@@ -1,0 +1,27 @@
+{
+  "name": "@liguita/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Logique métier pure de Liguita — tarification et correspondance. Aucune I/O.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./pricing": "./src/pricing/index.ts",
+    "./matching": "./src/matching/index.ts",
+    "./money": "./src/pricing/format.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.node.json",
+    "lint": "eslint src"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.8",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}
