@@ -9,13 +9,7 @@
 // ou hébergé est disponible pour obtenir les types exacts de la base.
 // ============================================================
 
-export type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | { [key: string]: Json | undefined }
-  | Json[];
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type AppRole = 'USER' | 'BUSINESS' | 'MODERATOR' | 'ADMIN';
 
@@ -161,13 +155,7 @@ export interface ItemStatusHistory {
 
 export type MatchLevel = 'VERY_LIKELY' | 'POSSIBLE' | 'WEAK';
 
-export type MatchStatus =
-  | 'NEW'
-  | 'SEEN'
-  | 'CLAIMED'
-  | 'REJECTED'
-  | 'EXPIRED'
-  | 'CONVERTED';
+export type MatchStatus = 'NEW' | 'SEEN' | 'CLAIMED' | 'REJECTED' | 'EXPIRED' | 'CONVERTED';
 
 export interface Match {
   id: string;
@@ -196,6 +184,38 @@ export interface Notification {
   sent_at: string | null;
   read_at: string | null;
   error: string | null;
+  attempts: number;
+  next_attempt_at: string | null;
+  created_at: string;
+}
+
+export type ConversationStatus = 'OPEN' | 'RETURN_PENDING' | 'RETURNED' | 'CLOSED' | 'DISPUTED';
+
+export interface Conversation {
+  id: string;
+  match_id: string;
+  owner_id: string;
+  finder_id: string;
+  transaction_id: string | null;
+  status: ConversationStatus;
+  return_place: string | null;
+  return_scheduled_at: string | null;
+  returned_at: string | null;
+  owner_confirmed_at: string | null;
+  finder_confirmed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Message {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  body: string;
+  attachment_path: string | null;
+  is_system: boolean;
+  flagged: boolean;
+  read_at: string | null;
   created_at: string;
 }
 
@@ -313,13 +333,28 @@ export interface Database {
       };
       matches: {
         Row: Match;
-        Insert: Partial<Match> & { lost_item_id: string; found_item_id: string; score: number; level: MatchLevel };
+        Insert: Partial<Match> & {
+          lost_item_id: string;
+          found_item_id: string;
+          score: number;
+          level: MatchLevel;
+        };
         Update: Partial<Match>;
       };
       notifications: {
         Row: Notification;
         Insert: Partial<Notification> & { user_id: string; kind: string; title: string };
         Update: Partial<Notification>;
+      };
+      conversations: {
+        Row: Conversation;
+        Insert: Partial<Conversation> & { match_id: string; owner_id: string; finder_id: string };
+        Update: Partial<Conversation>;
+      };
+      messages: {
+        Row: Message;
+        Insert: Partial<Message> & { conversation_id: string; sender_id: string; body: string };
+        Update: Partial<Message>;
       };
       saved_searches: {
         Row: SavedSearch;
@@ -389,6 +424,14 @@ export interface Database {
       run_saved_search_alerts: {
         Args: Record<string, never>;
         Returns: number;
+      };
+      create_conversation_for_match: {
+        Args: { p_match_id: string };
+        Returns: string;
+      };
+      confirm_return: {
+        Args: { p_conversation_id: string; p_side: 'OWNER' | 'FINDER' };
+        Returns: { status: ConversationStatus; completed: boolean };
       };
     };
     Enums: {

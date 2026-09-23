@@ -18,6 +18,7 @@ import {
   Info,
   LayoutDashboard,
   LifeBuoy,
+  MessageCircle,
   Package,
   Search,
   User,
@@ -54,6 +55,7 @@ export const PUBLIC_NAV: readonly NavItem[] = [
 export const APP_NAV: readonly NavItem[] = [
   { href: '/app', label: 'Tableau de bord', icon: LayoutDashboard },
   { href: '/app/correspondances', label: 'Correspondances', icon: Users },
+  { href: '/app/messages', label: 'Messages', icon: MessageCircle },
   { href: '/app/objets', label: 'Mes objets', icon: Package },
   { href: '/app/avis', label: 'Mes avis de recherche', icon: Bookmark },
   { href: '/app/notifications', label: 'Notifications', icon: Bell },
@@ -64,8 +66,8 @@ export const APP_NAV: readonly NavItem[] = [
 export const APP_BOTTOM_NAV: readonly NavItem[] = [
   { href: '/app', label: 'Accueil', icon: Home },
   { href: '/app/correspondances', label: 'Matches', icon: Users },
+  { href: '/app/messages', label: 'Messages', icon: MessageCircle },
   { href: '/app/objets', label: 'Objets', icon: Package },
-  { href: '/app/avis', label: 'Avis', icon: Bookmark },
   { href: '/app/profil', label: 'Profil', icon: User },
 ];
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, ShieldCheck, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { ArrowLeft, MessageCircle, ShieldCheck, ThumbsDown, ThumbsUp } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
@@ -8,6 +8,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { Badge, buttonClasses, Skeleton } from '@liguita/ui';
 
 import { getMatchDetail, setMatchStatus, type MatchDetail } from '../../../actions/matches';
+import { openConversation } from '../../../actions/conversations';
 import { useAuth } from '../../../../lib/auth/auth-context';
 import { formatLongDate } from '../../../../lib/format';
 
@@ -64,6 +65,15 @@ export default function MatchDetailPage() {
     });
   }
 
+  function handleOpenConversation() {
+    if (!item) return;
+    startTransition(async () => {
+      const result = await openConversation(item.id);
+      if (result.conversationId) router.push(`/app/messages/${result.conversationId}`);
+      else if (result.error) setError(result.error);
+    });
+  }
+
   if (isLoading) {
     return (
       <div className="space-y-4" aria-busy="true">
@@ -76,7 +86,10 @@ export default function MatchDetailPage() {
   if (error || !item) {
     return (
       <div className="space-y-4">
-        <Link href="/app/correspondances" className={buttonClasses({ variant: 'ghost', size: 'sm' })}>
+        <Link
+          href="/app/correspondances"
+          className={buttonClasses({ variant: 'ghost', size: 'sm' })}
+        >
           <ArrowLeft size={16} /> Retour
         </Link>
         <p role="alert" className="text-body text-danger-700">
@@ -161,8 +174,9 @@ export default function MatchDetailPage() {
                   <dt className="inline font-semibold">Lieu :</dt>{' '}
                   <dd className="inline">
                     {item.found.place_label}
-                    {item.found.neighborhood_slug ? ` · ${item.found.neighborhood_slug}` : ''} ·{' '}
-                    {item.found.city_slug}
+                    {item.found.neighborhood_slug
+                      ? ` · ${item.found.neighborhood_slug}`
+                      : ''} · {item.found.city_slug}
                   </dd>
                 </div>
                 <div>
@@ -199,6 +213,16 @@ export default function MatchDetailPage() {
           >
             <ShieldCheck size={16} /> Vérifier ma propriété
           </Link>
+          {item.status === 'CLAIMED' ? (
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={handleOpenConversation}
+              className={buttonClasses({ variant: 'outline' })}
+            >
+              <MessageCircle size={16} /> Ouvrir la conversation
+            </button>
+          ) : null}
           <button
             type="button"
             disabled={isPending || item.status === 'REJECTED'}

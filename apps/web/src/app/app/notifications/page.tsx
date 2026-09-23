@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 
 import { EmptyState, Skeleton } from '@liguita/ui';
 
+import { markNotificationRead } from '../../actions/conversations';
+
 import { useAuth } from '../../../lib/auth/auth-context';
 import { createClient } from '../../../lib/supabase/client';
 import { formatShortDate } from '../../../lib/format';
@@ -39,8 +41,25 @@ export default function NotificationsPage() {
         }
       });
 
+    const channel = supabase
+      .channel('notifications')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, () => {
+        if (!cancelled) {
+          void supabase
+            .from('notifications')
+            .select('id, kind, title, body, read_at, created_at')
+            .order('created_at', { ascending: false })
+            .limit(50)
+            .then(({ data }) => {
+              if (!cancelled) setItems((data ?? []) as NotificationRow[]);
+            });
+        }
+      })
+      .subscribe();
+
     return () => {
       cancelled = true;
+      void supabase.removeChannel(channel);
     };
   }, [user, authLoading]);
 
@@ -67,22 +86,33 @@ export default function NotificationsPage() {
       ) : (
         <ul className="space-y-3">
           {items.map((n) => (
-            <li
-              key={n.id}
-              className={`rounded-2xl border p-4 ${
-                n.read_at ? 'border-ink-200 bg-white' : 'border-brand-200 bg-brand-50/40'
-              }`}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <p className="font-display text-body-lg font-bold text-ink-950">{n.title}</p>
-                <span className="shrink-0 text-caption text-ink-500">
-                  {formatShortDate(n.created_at)}
-                </span>
-              </div>
-              {n.body ? <p className="mt-1 text-body-sm text-ink-600">{n.body}</p> : null}
-              <p className="mt-2 text-2xs font-semibold uppercase tracking-wide text-ink-400">
-                {n.kind}
-              </p>
+            <li key={n.id}>
+              <button
+                type="button"
+                onClick={() => {
+                  if (n.read_at) return;
+                  setItems((current) =>
+                    current.map((item) =>
+                      item.id === n.id ? { ...item, read_at: new Date().toISOString() } : item,
+                    ),
+                  );
+                  void markNotificationRead(n.id);
+                }}
+                className={`w-full rounded-2xl border p-4 text-left transition hover:border-brand-300 ${
+                  n.read_at ? 'border-ink-200 bg-white' : 'border-brand-200 bg-brand-50/40'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-display text-body-lg font-bold text-ink-950">{n.title}</p>
+                  <span className="shrink-0 text-caption text-ink-500">
+                    {formatShortDate(n.created_at)}
+                  </span>
+                </div>
+                {n.body ? <p className="mt-1 text-body-sm text-ink-600">{n.body}</p> : null}
+                <p className="mt-2 text-2xs font-semibold uppercase tracking-wide text-ink-400">
+                  {n.kind}
+                </p>
+              </button>
             </li>
           ))}
         </ul>

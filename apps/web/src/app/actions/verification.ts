@@ -456,7 +456,7 @@ async function notify(
     channel: 'WEB',
     title,
     body,
-    sent_at: new Date().toISOString(),
+    sent_at: null,
   });
 }
 
