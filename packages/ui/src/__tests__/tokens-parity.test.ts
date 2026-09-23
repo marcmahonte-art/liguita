@@ -22,6 +22,7 @@ import { describe, expect, it } from 'vitest';
 import {
   BORDER_DECORATIVE,
   BORDER_INTERACTIVE,
+  BRAND_BRIGHT,
   LOGO_RED,
   borderRadius,
   boxShadow,
@@ -34,6 +35,7 @@ import {
   ink,
   spacing,
   success,
+  surface,
   warning,
 } from '../tokens';
 
@@ -71,12 +73,19 @@ describe('parité jetons ↔ preset Tailwind', () => {
   it('expose les mêmes échelles de couleur', () => {
     // `toMatchObject` autorise le preset à porter des clés supplémentaires
     // (`brand.DEFAULT`, qui n'existe pas dans les jetons).
-    expect(extend.colors).toMatchObject({ brand, ink, success, warning, danger, info });
+    expect(extend.colors).toMatchObject({ brand, ink, surface, success, warning, danger, info });
   });
 
   it('expose la même couleur de marque par défaut', () => {
     const colors = extend.colors as Record<string, Record<string, unknown>>;
     expect(colors.brand?.DEFAULT).toBe(brand[500]);
+  });
+
+  it('expose le rouge vif décoratif dans les deux sources', () => {
+    // Sans cette vérification, `bg-brand-bright` produirait une couleur et
+    // `BRAND_BRIGHT` une autre — exactement l'écart que ce fichier existe pour empêcher.
+    const colors = extend.colors as Record<string, Record<string, unknown>>;
+    expect(colors.brand?.bright).toBe(BRAND_BRIGHT);
   });
 
   it('expose les mêmes familles de police', () => {
@@ -170,5 +179,47 @@ describe('jetons — invariants d’accessibilité', () => {
     // 3,30:1 et 2,15:1. Ils sont réservés aux icônes, aux fonds et aux barres.
     expect(contrastRatio(success[500], '#FFFFFF')).toBeLessThan(4.5);
     expect(contrastRatio(warning[500], '#FFFFFF')).toBeLessThan(4.5);
+  });
+});
+
+describe('jetons — rouge vif décoratif de la maquette', () => {
+  it('documente que #FF3330 ne peut pas porter de texte blanc', () => {
+    // 3,64:1, sous le seuil AA de 4,5:1. C'est la raison de l'arbitrage « Hybride » :
+    // le rouge vif reste décoratif, `brand.500` porte tous les libellés.
+    // Ce test empêche de rebasculer `brand.500` sur cette valeur sans s'en apercevoir.
+    expect(contrastRatio('#FFFFFF', BRAND_BRIGHT)).toBeLessThan(4.5);
+  });
+
+  it('garantit que le rouge porteur de texte reste conforme', () => {
+    // 4,76:1 — l'écart avec le rouge vif est à la limite du perceptible.
+    expect(contrastRatio('#FFFFFF', brand[500])).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe('jetons — surfaces', () => {
+  it('garantit le seuil AA pour le texte sur le fond de page', () => {
+    expect(contrastRatio(ink[900], surface.page)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(ink[500], surface.page)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('garantit le seuil AA pour le texte sur les teintes des cartes d’action', () => {
+    // Les libellés posés directement sur la teinte utilisent le pas 700, jamais le 500 :
+    // `brand.500` sur `surface.lost` ne mesure que 4,30:1.
+    expect(contrastRatio(brand[700], surface.lost)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(success[700], surface.found)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('documente que brand.500 est interdit en texte sur la teinte perdue', () => {
+    // 4,30:1 — de peu sous le seuil. Un lien rouge posé directement sur la carte
+    // « J'ai perdu un objet » doit utiliser `brand.700`.
+    expect(contrastRatio(brand[500], surface.lost)).toBeLessThan(4.5);
+  });
+
+  it('documente que les bordures interactives exigent un fond blanc', () => {
+    // 3,14:1 sur blanc, mais 2,96:1 sur `surface.page` : sous le seuil de 3:1.
+    // Conséquence de conception : un champ de saisie porte TOUJOURS son propre fond
+    // blanc, il n'est jamais posé à nu sur le fond de page.
+    expect(contrastRatio(BORDER_INTERACTIVE, ink[0])).toBeGreaterThanOrEqual(3);
+    expect(contrastRatio(BORDER_INTERACTIVE, surface.page)).toBeLessThan(3);
   });
 });

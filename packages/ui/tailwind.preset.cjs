@@ -30,6 +30,9 @@ const liguitaPreset = {
           800: '#7E070E',
           900: '#56040A',
           DEFAULT: '#E50F1A',
+          /* Rouge vif de la maquette — DÉCORATIF. 3,64:1 avec du blanc : jamais du texte. */
+          bright: '#FF3330',
+          'bright-hover': '#E52522',
         },
         ink: {
           0: '#FFFFFF',
@@ -41,6 +44,13 @@ const liguitaPreset = {
           500: '#5B6470',
           700: '#2A2F38',
           900: '#0E1116',
+        },
+        surface: {
+          page: '#F7F8FA',
+          card: '#FFFFFF',
+          muted: '#EEF1F5',
+          lost: '#FFF0F0',
+          found: '#EAF8F1',
         },
         success: { 50: '#DCFCE7', 500: '#16A34A', 700: '#166534' },
         warning: { 50: '#FEF3C7', 500: '#F59E0B', 700: '#92400E' },

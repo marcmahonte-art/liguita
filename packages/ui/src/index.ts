@@ -15,4 +15,6 @@
 
 export * from './tokens';
 export * from './lib/cn';
+export * from './lib/contrast';
+export * from './lib/button-classes';
 export * from './components';

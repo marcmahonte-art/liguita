@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "Liguita — application web",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    /* Next.js compile lui-même : pas de sortie TypeScript à produire ici. */
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+
+    /* Next.js transforme le JSX ; TypeScript ne fait que le vérifier. */
+    "jsx": "preserve",
+    "allowJs": true,
+    "incremental": true,
+
+    /* Le DOM est nécessaire côté client ; `ES2022` seul ne suffit pas. */
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+
+    /* Next.js résout les modules via son propre bundler. */
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+
+    /* Les fichiers générés par Next.js (`next-env.d.ts`) portent le plugin de langue. */
+    "plugins": [{ "name": "next" }],
+
+    /* Alias interne de l'application. */
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules", ".next", "out"]
+}

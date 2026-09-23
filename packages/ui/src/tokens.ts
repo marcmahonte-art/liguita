@@ -41,6 +41,25 @@ export const brand = {
 /** Rouge brut du logo — réservé à l'image de marque, jamais au texte ni aux boutons. */
 export const LOGO_RED = '#F10F15';
 
+/**
+ * Rouge vif de la maquette Home + Dashboard (`#FF3330`).
+ *
+ * ⚠️ **Décoratif uniquement.** Mesuré à **3,64:1** avec du texte blanc, il est sous le
+ * seuil WCAG AA de 4,5:1 (SC 1.4.3). Il ne porte donc jamais de libellé : il sert aux
+ * aplats, aux dégradés, aux illustrations et aux traits d'accent, là où aucune
+ * information n'est transmise par le texte.
+ *
+ * Pour tout élément portant du texte — bouton, lien, badge — c'est `brand[500]`
+ * (`#E50F1A`, 4,76:1) qui s'applique. L'écart entre les deux rouges est à la limite
+ * du perceptible, l'identité visuelle reste donc celle de la maquette.
+ *
+ * Arbitrage validé par le commanditaire (option « Hybride »).
+ */
+export const BRAND_BRIGHT = '#FF3330';
+
+/** Rouge vif à l'état survolé — même rôle décoratif que `BRAND_BRIGHT`. */
+export const BRAND_BRIGHT_HOVER = '#E52522';
+
 /** Échelle de neutres. Une vraie rampe continue à 9 pas, nécessaire aux états d'interface. */
 export const ink = {
   0: '#FFFFFF',
@@ -108,6 +127,36 @@ export const semantic = {
   settled: ink[500],
   settledBg: ink[50],
   money: ink[900],
+} as const;
+
+/* -------------------------------------------------------------------------- */
+/* Surfaces                                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Rôles de surface, demandés par la maquette Home + Dashboard.
+ *
+ * ⚠️ Ces jetons **ne créent pas de nouvelles couleurs** : ils nomment des usages en
+ * réutilisant la rampe existante. La maquette proposait `#F9FAFB` pour le fond de page
+ * et `#E5E7EB` pour la bordure, valeurs à deux unités près de `ink[50]` (`#F7F8FA`) et
+ * `ink[200]` (`#DEE3EA`). Introduire ces quasi-doublons créerait deux jetons pour un
+ * même rôle — la garantie la plus sûre qu'ils finiront par diverger.
+ *
+ * Les deux teintes `lost` et `found` sont en revanche de vraies nouvelles couleurs :
+ * elles viennent de la maquette (`#FFF0F0`, `#EAF8F1`) et sont plus douces que
+ * `brand[50]` et `success[50]`, ce qui convient mieux à de grandes cartes d'action.
+ */
+export const surface = {
+  /** Fond de page général. */
+  page: ink[50],
+  /** Fond d'une carte posée sur la page. */
+  card: ink[0],
+  /** Fond d'un bloc secondaire posé sur une carte. */
+  muted: ink[100],
+  /** Teinte de la carte « J'ai perdu un objet ». */
+  lost: '#FFF0F0',
+  /** Teinte de la carte « J'ai trouvé un objet ». Le vert signale l'action « trouvé ». */
+  found: '#EAF8F1',
 } as const;
 
 /* -------------------------------------------------------------------------- */
@@ -207,7 +256,10 @@ export const TOUCH_TARGET_MIN = '48px';
 
 export const tokens = {
   brand,
+  brandBright: BRAND_BRIGHT,
+  brandBrightHover: BRAND_BRIGHT_HOVER,
   ink,
+  surface,
   success,
   warning,
   danger,

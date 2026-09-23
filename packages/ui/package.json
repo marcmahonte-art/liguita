@@ -10,6 +10,8 @@
     ".": "./src/index.ts",
     "./tokens": "./src/tokens.ts",
     "./cn": "./src/lib/cn.ts",
+    "./contrast": "./src/lib/contrast.ts",
+    "./button-classes": "./src/lib/button-classes.ts",
     "./globals.css": "./src/globals.css",
     "./tailwind-preset": "./tailwind.preset.cjs"
   },
