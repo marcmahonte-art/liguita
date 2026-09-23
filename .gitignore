@@ -49,4 +49,5 @@ pnpm-debug.log*
 # Divers
 .workbuddy-ai/
 .build-tmp/
+.trash-tmp/
 *.local

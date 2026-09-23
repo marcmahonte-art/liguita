@@ -60,7 +60,9 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
             'focus:outline-none focus-visible:border-ink-900 focus-visible:shadow-focus',
             'disabled:bg-ink-50 disabled:text-ink-400',
             error ? 'border-danger-500 focus-visible:shadow-focus-danger' : 'border-ink-400',
-            props.value === '' && 'text-ink-400',
+            // Le texte de l'option vide est du texte affiché : il suit le seuil AA de
+            // 4,5:1 (ink.500), contrairement à l'état désactivé qui en est exempté.
+            props.value === '' && 'text-ink-500',
             className,
           )}
           {...props}

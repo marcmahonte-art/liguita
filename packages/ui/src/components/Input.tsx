@@ -47,7 +47,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
           aria-describedby={describedBy}
           className={cn(
             'h-[52px] w-full rounded-lg border bg-white px-4 font-body text-body text-ink-900',
-            'placeholder:text-ink-400',
+            'placeholder:text-ink-500',
             'focus:outline-none focus-visible:border-ink-900 focus-visible:shadow-focus',
             'disabled:bg-ink-50 disabled:text-ink-400',
             error
@@ -126,7 +126,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(functi
         enterKeyHint="search"
         className={cn(
           'min-w-0 flex-1 border-none bg-transparent font-body text-ink-900 outline-none',
-          'placeholder:text-ink-400',
+          'placeholder:text-ink-500',
           size === 'lg' ? 'text-body-lg' : 'text-body',
           className,
         )}

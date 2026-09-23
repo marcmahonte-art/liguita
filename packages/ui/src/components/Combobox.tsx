@@ -158,7 +158,7 @@ export function Combobox({
           onKeyDown={handleKeyDown}
           className={cn(
             'h-[52px] w-full rounded-lg border bg-white px-4 pr-11',
-            'font-body text-body text-ink-900 placeholder:text-ink-400',
+            'font-body text-body text-ink-900 placeholder:text-ink-500',
             'focus:outline-none focus-visible:border-ink-900 focus-visible:shadow-focus',
             'disabled:bg-ink-50 disabled:text-ink-400',
             error ? 'border-danger-500 focus-visible:shadow-focus-danger' : 'border-ink-400',

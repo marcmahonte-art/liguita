@@ -156,12 +156,19 @@ Les boards décrivent 4 étapes, la maquette 5. La version à 5 étapes est rete
 | `ink.0` | `#FFFFFF` | Surface principale |
 | `ink.50` | `#F7F8FA` | Fond de page, survol de tableau, champs désactivés |
 | `ink.100` | `#EEF1F5` | Séparateur doux, fond de puce |
-| `ink.200` | `#DEE3EA` | **Bordure par défaut** |
-| `ink.300` | `#B7BEC9` | Bordure de champ de saisie |
-| `ink.400` | `#8A929E` | Placeholder, icône inactive |
-| `ink.500` | `#5B6470` | **Texte secondaire — 6,00:1** |
+| `ink.200` | `#DEE3EA` | Bordure **décorative** — séparateurs, contours de carte, connecteurs d'étapes |
+| `ink.300` | `#B7BEC9` | **Décoratif uniquement — 1,87:1.** Ne peut pas porter un composant interactif |
+| `ink.400` | `#8A929E` | **Bordure de composant interactif — 3,14:1**, et état désactivé |
+| `ink.500` | `#5B6470` | **Texte secondaire et placeholder — 6,00:1** |
 | `ink.700` | `#2A2F38` | Libellés de champ, titres de tableau |
 | `ink.900` | `#0E1116` | **Texte principal — 18,91:1**, fond de bloc sombre |
+
+> **Arbitrage — correction apportée au plan.** La version initiale de ce tableau désignait `ink.300` (`#B7BEC9`) comme « bordure de champ de saisie », alors que le §2.10 exige un contraste ≥ 3:1 pour les composants d'interface (WCAG 2.2 SC 1.4.11, niveau AA). Les deux prescriptions sont **incompatibles** : mesuré sur fond blanc, `ink.300` atteint 1,87:1. `ink.400` est le premier pas conforme de la rampe, à 3,14:1 — c'est donc lui qui porte les bordures de champ, de bouton secondaire, de badge contour et de case OTP.
+>
+> Deux conséquences en cascade, également arbitrées : `ink.400` ne peut pas servir de couleur de placeholder (3,14:1 < 4,5:1 exigé pour du texte) — le placeholder passe à `ink.500` ; et l'état **désactivé** conserve `ink.400`, les composants inactifs étant explicitement exemptés d'exigence de contraste par la SC 1.4.3.
+>
+> Ces valeurs ne sont pas laissées à la discipline : `packages/ui/src/__tests__/tokens-parity.test.ts` mesure les ratios et échoue si l'une d'elles repasse sous son seuil.
+
 
 > La planche ChatGPT utilisait `#111827` / `#6B7280` / `#F3F4F6` (gris Tailwind). Ils sont écartés au profit de l'échelle `ink` qui est une **vraie rampe continue à 9 pas**, nécessaire pour les états de survol, de désactivation et les bordures. Les valeurs sont assez proches pour que l'écart ne soit pas perçu.
 

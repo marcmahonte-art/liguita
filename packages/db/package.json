@@ -1,0 +1,23 @@
+{
+  "name": "@liguita/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Migrations SQL, seed du référentiel et types générés (Supabase / PostgreSQL).",
+  "scripts": {
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:reset": "supabase db reset",
+    "db:seed:generate": "tsx scripts/generate-seed.ts",
+    "db:types": "supabase gen types typescript --local > src/database.types.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@liguita/config": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

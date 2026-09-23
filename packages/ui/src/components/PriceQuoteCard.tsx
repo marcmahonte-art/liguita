@@ -101,7 +101,7 @@ export function PriceQuoteCard({ quote, title = 'Frais de mise en relation', cla
         </p>
       ) : null}
 
-      <p className="mt-3 text-caption text-ink-400">
+      <p className="mt-3 text-caption text-ink-500">
         Devis figé — grille tarifaire version {quote.ruleVersion}. Ce montant ne changera plus.
       </p>
     </section>
