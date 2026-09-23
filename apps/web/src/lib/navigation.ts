@@ -40,7 +40,8 @@ export interface NavItem {
 
 export const PUBLIC_NAV: readonly NavItem[] = [
   { href: '/', label: 'Accueil', icon: Home },
-  { href: '/search', label: 'Rechercher', icon: Search },
+  { href: '/rechercher', label: 'Rechercher', icon: Search },
+  { href: '/objets-trouves', label: 'Objets trouvés', icon: Package },
   { href: '/about', label: 'À propos', icon: Info },
   { href: '/business', label: 'Entreprises', icon: Building2 },
   { href: '/help', label: 'Aide', icon: HelpCircle },
@@ -104,9 +105,10 @@ export const FOOTER_COLUMNS: readonly FooterColumn[] = [
   {
     title: 'Le service',
     links: [
-      { href: '/search', label: 'Rechercher un objet' },
-      { href: '/lost', label: 'Déclarer une perte' },
-      { href: '/found', label: 'Déclarer un objet trouvé' },
+      { href: '/rechercher', label: 'Rechercher un objet' },
+      { href: '/objets-trouves', label: 'Objets trouvés' },
+      { href: '/declarer/perdu', label: 'Déclarer une perte' },
+      { href: '/declarer/trouve', label: 'Déclarer un objet trouvé' },
       { href: '/business', label: 'Liguita Business' },
     ],
   },

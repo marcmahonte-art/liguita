@@ -5,7 +5,7 @@
 // (supabase gen types typescript --local > src/database.types.ts)
 //
 // ⚠️ Ce fichier est un squelette manuel aligné sur les migrations
-// 0001–0006. Régénérez-le avec la CLI Supabase dès qu'un projet local
+// 0001–0008. Régénérez-le avec la CLI Supabase dès qu'un projet local
 // ou hébergé est disponible pour obtenir les types exacts de la base.
 // ============================================================
 
@@ -94,6 +94,46 @@ export interface FoundItem {
   status: ItemStatus;
   created_at: string;
   updated_at: string;
+  search_vector?: unknown;
+}
+
+/**
+ * Ligne publiée de `public_found_items` / `search_found_items` (0008).
+ * Contrat d'anonymisation : ni `finder_id`, ni description complète,
+ * ni coordonnées, ni téléphone.
+ */
+export interface PublicFoundItem {
+  id: string;
+  category_code: string;
+  item_type_code: string;
+  title: string;
+  brand: string | null;
+  color: string | null;
+  city_slug: string;
+  neighborhood_slug: string | null;
+  place_label: string;
+  found_at: string;
+  status: ItemStatus;
+  created_at: string;
+  photo_count: number | null;
+  description_preview: string | null;
+}
+
+/** Ligne de la RPC `search_found_items` : `PublicFoundItem` + curseur. */
+export interface SearchFoundItemsRow extends PublicFoundItem {
+  next_cursor_found_at: string | null;
+  next_cursor_id: string | null;
+}
+
+export interface SearchFoundItemsArgs {
+  p_query?: string | null;
+  p_category_code?: string | null;
+  p_city_slug?: string | null;
+  p_neighborhood_slug?: string | null;
+  p_item_type_code?: string | null;
+  p_cursor_found_at?: string | null;
+  p_cursor_id?: string | null;
+  p_limit?: number;
 }
 
 export interface ItemPhoto {
@@ -148,8 +188,19 @@ export interface Database {
         Update: Partial<ItemStatusHistory>;
       };
     };
-    Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Views: {
+      public_found_items: {
+        Row: PublicFoundItem;
+        Insert: never;
+        Update: never;
+      };
+    };
+    Functions: {
+      search_found_items: {
+        Args: SearchFoundItemsArgs;
+        Returns: SearchFoundItemsRow[];
+      };
+    };
     Enums: {
       app_role: AppRole;
       lost_status: LostStatus;

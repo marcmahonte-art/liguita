@@ -1,136 +1,285 @@
 'use client';
 
 import {
-  Calendar,
   Filter,
-  MapPin,
   Search,
   ShieldCheck,
+  WifiOff,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
-import { Suspense, useMemo, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { CATEGORIES, NEIGHBORHOODS } from '@liguita/config';
-import { buttonClasses, cn } from '@liguita/ui';
+import { Alert, buttonClasses, cn, EmptyState, Skeleton } from '@liguita/ui';
 
-import { MOCK_ITEMS } from '../../../lib/mock-data';
+import { ItemCard } from '../../../components/public/ItemCard';
+import { createClient } from '../../../lib/supabase/client';
+import { toPublicItem, type PublicItem } from '../../../lib/search';
+
+const PAGE_SIZE = 12;
+const DEBOUNCE_MS = 300;
+
+type KindFilter = 'all' | 'found';
+
+interface SearchState {
+  items: PublicItem[];
+  isLoading: boolean;
+  error: string | null;
+  nextCursorFoundAt: string | null;
+  nextCursorId: string | null;
+  hasMore: boolean;
+}
+
+const INITIAL_STATE: SearchState = {
+  items: [],
+  isLoading: true,
+  error: null,
+  nextCursorFoundAt: null,
+  nextCursorId: null,
+  hasMore: false,
+};
 
 function SearchContent() {
   const searchParams = useSearchParams();
-  const initialQuery = searchParams.get('q') || '';
+  const pathname = usePathname();
+  const router = useRouter();
 
-  const [query, setQuery] = useState(initialQuery);
-  const [selectedKind, setSelectedKind] = useState<'ALL' | 'FOUND' | 'LOST'>('ALL');
-  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
-  const [selectedNeighborhood, setSelectedNeighborhood] = useState<string>('ALL');
+  const urlQuery = searchParams.get('q') ?? '';
+  const urlKind = (searchParams.get('kind') ?? 'all') as KindFilter;
+  const urlCategory = searchParams.get('category') ?? 'ALL';
+  const urlNeighborhood = searchParams.get('neighborhood') ?? 'ALL';
 
-  // Filtrage des résultats
-  const filteredItems = useMemo(() => {
-    return MOCK_ITEMS.filter((item) => {
-      // Filtre type
-      if (selectedKind !== 'ALL' && item.kind !== selectedKind) {
-        return false;
+  const [query, setQuery] = useState(urlQuery);
+  const [selectedKind, setSelectedKind] = useState<KindFilter>(urlKind);
+  const [selectedCategory, setSelectedCategory] = useState(urlCategory);
+  const [selectedNeighborhood, setSelectedNeighborhood] = useState(urlNeighborhood);
+  const [isOnline, setIsOnline] = useState(true);
+  const [retryToken, setRetryToken] = useState(0);
+
+  const [state, setState] = useState<SearchState>(INITIAL_STATE);
+  const cursorRef = useRef<{ foundAt: string | null; id: string | null }>({
+    foundAt: null,
+    id: null,
+  });
+  const requestIdRef = useRef(0);
+
+  /* ---------------------------------------------------------------- URLs -- */
+  const replaceUrl = useCallback(
+    (next: { q?: string; kind?: KindFilter; category?: string; neighborhood?: string }) => {
+      const params = new URLSearchParams(searchParams.toString());
+      const setOrDelete = (key: string, value: string | undefined, fallback: string) => {
+        if (!value || value === fallback) params.delete(key);
+        else params.set(key, value);
+      };
+      setOrDelete('q', next.q ?? query, '');
+      setOrDelete('kind', next.kind ?? selectedKind, 'all');
+      setOrDelete('category', next.category ?? selectedCategory, 'ALL');
+      setOrDelete('neighborhood', next.neighborhood ?? selectedNeighborhood, 'ALL');
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams, query, selectedKind, selectedCategory, selectedNeighborhood],
+  );
+
+  /* --------------------------------------------------------------- offline */
+  useEffect(() => {
+    const update = () => setIsOnline(navigator.onLine);
+    update();
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
+    return () => {
+      window.removeEventListener('online', update);
+      window.removeEventListener('offline', update);
+    };
+  }, []);
+
+  /* -------------------------------------------------- debounce q → URL ----- */
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      if (query !== urlQuery) replaceUrl({ q: query });
+    }, DEBOUNCE_MS);
+    return () => window.clearTimeout(handle);
+  }, [query, urlQuery, replaceUrl]);
+
+  /* ------------------------------------------------------ filtres → URL ---- */
+  useEffect(() => {
+    if (selectedKind !== urlKind || selectedCategory !== urlCategory || selectedNeighborhood !== urlNeighborhood) {
+      replaceUrl({ kind: selectedKind, category: selectedCategory, neighborhood: selectedNeighborhood });
+    }
+  }, [selectedKind, selectedCategory, selectedNeighborhood, urlKind, urlCategory, urlNeighborhood, replaceUrl]);
+
+  /* -------------------------------------------------------------- requête -- */
+  const fetchPage = useCallback(
+    async (mode: 'reset' | 'more') => {
+      const requestId = ++requestIdRef.current;
+      const q = (mode === 'reset' ? query : urlQuery).trim();
+
+      if (mode === 'reset') {
+        cursorRef.current = { foundAt: null, id: null };
+        setState((prev) => ({ ...prev, isLoading: true, error: null }));
+      } else {
+        setState((prev) => ({ ...prev, isLoading: true, error: null }));
       }
-      // Filtre catégorie
-      if (selectedCategory !== 'ALL' && !item.categoryId.startsWith(selectedCategory)) {
-        return false;
+
+      if (!isOnline) {
+        setState((prev) => ({
+          ...prev,
+          isLoading: false,
+          error: 'Vous êtes hors ligne. Les résultats ne peuvent pas être actualisés.',
+        }));
+        return;
       }
-      // Filtre quartier
-      if (selectedNeighborhood !== 'ALL' && item.neighborhoodSlug !== selectedNeighborhood) {
-        return false;
-      }
-      // Filtre texte
-      if (query.trim()) {
-        const q = query.toLowerCase();
-        const matchTitle = item.title.toLowerCase().includes(q);
-        const matchDesc = item.description?.toLowerCase().includes(q) ?? false;
-        const matchPlace = item.placeLabel.toLowerCase().includes(q);
-        if (!matchTitle && !matchDesc && !matchPlace) {
-          return false;
+
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase.rpc('search_found_items', {
+          p_query: q || null,
+          p_category_code: urlCategory === 'ALL' ? null : urlCategory,
+          p_neighborhood_slug: urlNeighborhood === 'ALL' ? null : urlNeighborhood,
+          p_limit: PAGE_SIZE,
+          p_cursor_found_at: mode === 'more' ? cursorRef.current.foundAt : null,
+          p_cursor_id: mode === 'more' ? cursorRef.current.id : null,
+        });
+
+        if (requestId !== requestIdRef.current) return;
+
+        if (error) {
+          setState((prev) => ({
+            ...prev,
+            isLoading: false,
+            error: error.message || 'La recherche a échoué.',
+          }));
+          return;
         }
+
+        const rows = Array.isArray(data) ? data : [];
+        const mapped = rows.map((row) => toPublicItem(row as Record<string, unknown>));
+        const last = rows[rows.length - 1] as
+          | { next_cursor_found_at?: string | null; next_cursor_id?: string | null }
+          | undefined;
+
+        const nextFoundAt = last?.next_cursor_found_at ?? null;
+        const nextId = last?.next_cursor_id ?? null;
+        cursorRef.current = { foundAt: nextFoundAt, id: nextId };
+
+        setState((prev) => ({
+          items: mode === 'more' ? [...prev.items, ...mapped] : mapped,
+          isLoading: false,
+          error: null,
+          nextCursorFoundAt: nextFoundAt,
+          nextCursorId: nextId,
+          hasMore: Boolean(nextFoundAt && nextId),
+        }));
+      } catch (err) {
+        if (requestId !== requestIdRef.current) return;
+        setState((prev) => ({
+          ...prev,
+          isLoading: false,
+          error: err instanceof Error ? err.message : 'Erreur réseau inattendue.',
+        }));
       }
+    },
+    [query, urlQuery, urlCategory, urlNeighborhood, isOnline],
+  );
+
+  // Rechargement à chaque changement de critères (reset).
+  useEffect(() => {
+    void fetchPage('reset');
+  }, [fetchPage, retryToken]);
+
+  const uniqueItems = useMemo(() => {
+    const seen = new Set<string>();
+    return state.items.filter((item) => {
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
       return true;
     });
-  }, [query, selectedKind, selectedCategory, selectedNeighborhood]);
+  }, [state.items]);
+
+  const filtersActive =
+    query || selectedKind !== 'all' || selectedCategory !== 'ALL' || selectedNeighborhood !== 'ALL';
+
+  const resetFilters = () => {
+    setQuery('');
+    setSelectedKind('all');
+    setSelectedCategory('ALL');
+    setSelectedNeighborhood('ALL');
+  };
 
   return (
     <div className="bg-ink-50/40 min-h-screen py-10 sm:py-14">
       <div className="container-liguita">
-        {/* Titre & sous-titre */}
+        {!isOnline ? (
+          <div
+            role="status"
+            className="mb-6 flex items-center gap-2 rounded-xl border border-warning-500/40 bg-warning-50 px-4 py-3 text-body-sm font-semibold text-warning-700"
+          >
+            <WifiOff size={18} aria-hidden />
+            Mode hors ligne — les résultats affichés peuvent être obsolètes.
+          </div>
+        ) : null}
+
         <div className="max-w-2xl">
           <h1 className="font-display text-3xl font-extrabold text-ink-950 sm:text-4xl">
             Rechercher un objet
           </h1>
           <p className="mt-2 text-body text-ink-600">
-            Consultez les déclarations d'objets perdus et trouvés enregistrées à N'Djamena et au Tchad.
+            Consultez les objets trouvés enregistrés à N&apos;Djamena et au Tchad. Aucune
+            donnée personnelle n&apos;est exposée (loi n° 007/PR/2015).
           </p>
         </div>
 
-        {/* Barre de recherche principale */}
         <div className="mt-8 rounded-2xl border border-ink-200 bg-white p-4 shadow-xs">
           <div className="relative">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400" size={20} />
             <input
-              type="text"
+              type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Rechercher par mot-clé (ex: carte nationale, iPhone, clés de voiture...)"
+              aria-label="Mot-clé de recherche"
               className="w-full rounded-xl border border-ink-200 bg-ink-50/50 py-3 pl-11 pr-4 text-body font-medium text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:bg-white focus:outline-none"
             />
           </div>
 
-          {/* Filtres interactifs */}
           <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-ink-100 pt-4">
-            <div className="flex items-center gap-1.5 text-caption font-semibold text-ink-500 mr-2">
-              <Filter size={15} />
+            <div className="mr-2 flex items-center gap-1.5 text-caption font-semibold text-ink-500">
+              <Filter size={15} aria-hidden />
               <span>Filtres :</span>
             </div>
 
-            {/* Type : Tout / Trouvé / Perdu */}
-            <div className="inline-flex rounded-lg bg-ink-100 p-1">
+            <div className="inline-flex rounded-lg bg-ink-100 p-1" role="group" aria-label="Type d'objet">
               <button
                 type="button"
-                onClick={() => setSelectedKind('ALL')}
+                onClick={() => setSelectedKind('all')}
                 className={cn(
                   'rounded-md px-3 py-1 text-caption font-semibold transition',
-                  selectedKind === 'ALL'
+                  selectedKind === 'all'
                     ? 'bg-white text-ink-900 shadow-2xs'
-                    : 'text-ink-600 hover:text-ink-900'
+                    : 'text-ink-600 hover:text-ink-900',
                 )}
               >
                 Tous
               </button>
               <button
                 type="button"
-                onClick={() => setSelectedKind('FOUND')}
+                onClick={() => setSelectedKind('found')}
                 className={cn(
                   'rounded-md px-3 py-1 text-caption font-semibold transition',
-                  selectedKind === 'FOUND'
+                  selectedKind === 'found'
                     ? 'bg-emerald-600 text-white shadow-2xs'
-                    : 'text-ink-600 hover:text-ink-900'
+                    : 'text-ink-600 hover:text-ink-900',
                 )}
               >
                 Objets trouvés
               </button>
-              <button
-                type="button"
-                onClick={() => setSelectedKind('LOST')}
-                className={cn(
-                  'rounded-md px-3 py-1 text-caption font-semibold transition',
-                  selectedKind === 'LOST'
-                    ? 'bg-brand-500 text-white shadow-2xs'
-                    : 'text-ink-600 hover:text-ink-900'
-                )}
-              >
-                Objets perdus
-              </button>
             </div>
 
-            {/* Sélecteur Catégorie */}
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
+              aria-label="Catégorie"
               className="rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-caption font-semibold text-ink-700 focus:border-brand-500 focus:outline-none"
             >
               <option value="ALL">Toutes les catégories</option>
@@ -141,13 +290,13 @@ function SearchContent() {
               ))}
             </select>
 
-            {/* Sélecteur Quartier N'Djamena */}
             <select
               value={selectedNeighborhood}
               onChange={(e) => setSelectedNeighborhood(e.target.value)}
+              aria-label="Quartier"
               className="rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-caption font-semibold text-ink-700 focus:border-brand-500 focus:outline-none"
             >
-              <option value="ALL">Tous les quartiers (N'Djamena)</option>
+              <option value="ALL">Tous les quartiers (N&apos;Djamena)</option>
               {NEIGHBORHOODS.map((n) => (
                 <option key={n.slug} value={n.slug}>
                   {n.name} ({n.arrondissement}e arr.)
@@ -155,134 +304,115 @@ function SearchContent() {
               ))}
             </select>
 
-            {(query || selectedKind !== 'ALL' || selectedCategory !== 'ALL' || selectedNeighborhood !== 'ALL') && (
+            {filtersActive ? (
               <button
                 type="button"
-                onClick={() => {
-                  setQuery('');
-                  setSelectedKind('ALL');
-                  setSelectedCategory('ALL');
-                  setSelectedNeighborhood('ALL');
-                }}
-                className="text-caption font-semibold text-brand-600 hover:underline ml-auto"
+                onClick={resetFilters}
+                className="ml-auto text-caption font-semibold text-brand-600 hover:underline"
               >
                 Réinitialiser
               </button>
-            )}
+            ) : null}
           </div>
         </div>
 
-        {/* Compteur de résultats */}
         <div className="mt-6 flex items-center justify-between">
-          <p className="text-body-sm font-semibold text-ink-700">
-            {filteredItems.length} {filteredItems.length <= 1 ? 'résultat trouvé' : 'résultats trouvés'}
+          <p className="text-body-sm font-semibold text-ink-700" aria-live="polite">
+            {state.isLoading
+              ? 'Recherche en cours…'
+              : `${uniqueItems.length} ${uniqueItems.length <= 1 ? 'résultat trouvé' : 'résultats trouvés'}`}
           </p>
           <div className="flex items-center gap-1.5 text-caption text-ink-500">
-            <ShieldCheck size={16} className="text-emerald-600" />
+            <ShieldCheck size={16} className="text-emerald-600" aria-hidden />
             <span>Données privées protégées (loi n° 007/PR/2015)</span>
           </div>
         </div>
 
-        {/* Liste des résultats */}
-        {filteredItems.length > 0 ? (
-          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredItems.map((item) => {
-              const isFound = item.kind === 'FOUND';
-              return (
-                <div
-                  key={item.id}
-                  className="flex flex-col justify-between rounded-2xl border border-ink-200 bg-white p-5 shadow-xs transition hover:border-brand-300 hover:shadow-card"
-                >
-                  <div>
-                    {/* Badge type */}
-                    <div className="flex items-center justify-between">
-                      <span
-                        className={cn(
-                          'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-caption font-bold',
-                          isFound
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : 'bg-brand-50 text-brand-700 border border-brand-200'
-                        )}
-                      >
-                        <span className={cn('size-2 rounded-full', isFound ? 'bg-emerald-500' : 'bg-brand-500')} />
-                        {isFound ? 'Objet trouvé' : 'Objet perdu'}
-                      </span>
-
-                      <span className="text-caption text-ink-400">
-                        {item.status === 'MATCHED' ? 'Correspondance en cours' : 'Actif'}
-                      </span>
-                    </div>
-
-                    {/* Titre */}
-                    <h3 className="mt-3 font-display text-body-lg font-bold text-ink-950">
-                      {item.title}
-                    </h3>
-
-                    {/* Description tronquée sans données sensibles */}
-                    {item.description && (
-                      <p className="mt-1.5 text-caption text-ink-600 line-clamp-2">
-                        {item.description}
-                      </p>
-                    )}
-
-                    {/* Localisation et Date */}
-                    <div className="mt-4 space-y-1.5 border-t border-ink-100 pt-3 text-caption text-ink-600">
-                      <div className="flex items-center gap-2">
-                        <MapPin size={15} className="text-ink-400 shrink-0" />
-                        <span>{item.placeLabel} (N'Djamena)</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Calendar size={15} className="text-ink-400 shrink-0" />
-                        <span>
-                          {new Date(item.occurredAt).toLocaleDateString('fr-FR', {
-                            day: 'numeric',
-                            month: 'long',
-                            year: 'numeric',
-                          })}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Action */}
-                  <div className="mt-5 border-t border-ink-100 pt-3">
-                    <Link
-                      href={isFound ? `/declarer/perdu?match=${item.id}` : `/declarer/trouve?match=${item.id}`}
-                      className={buttonClasses({
-                        variant: isFound ? 'primary' : 'outline',
-                        block: true,
-                        size: 'sm',
-                      })}
-                    >
-                      {isFound ? "C'est mon objet !" : "J'ai cet objet"}
-                    </Link>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          /* État vide */
-          <div className="mt-8 rounded-3xl border border-dashed border-ink-300 bg-white p-10 text-center">
-            <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-ink-100 text-ink-500">
-              <Search size={28} />
-            </div>
-            <h3 className="mt-4 font-display text-xl font-bold text-ink-900">
-              Aucun objet ne correspond à votre recherche
-            </h3>
-            <p className="mx-auto mt-2 max-w-md text-body-sm text-ink-600">
-              Votre objet n'a pas encore été signalé par un trouveur ? Enregistrez dès maintenant une déclaration de perte. Notre moteur Liguita vous notifiera immédiatement dès qu'une correspondance sera trouvée.
-            </p>
-            <div className="mt-6 flex justify-center gap-3">
-              <Link
-                href="/declarer/perdu"
-                className={buttonClasses({ variant: 'primary' })}
+        {state.error ? (
+          <Alert
+            tone="danger"
+            title="La recherche a échoué"
+            className="mt-4"
+            action={
+              <button
+                type="button"
+                onClick={() => setRetryToken((t) => t + 1)}
+                className={buttonClasses({ variant: 'outline', size: 'sm' })}
               >
-                Déclarer mon objet perdu
-              </Link>
+                Réessayer
+              </button>
+            }
+          >
+            {state.error}
+          </Alert>
+        ) : null}
+
+        <div className="mt-4">
+          {state.isLoading && uniqueItems.length === 0 ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
+              {Array.from({ length: 4 }, (_, i) => (
+                <div
+                  key={i}
+                  className="rounded-2xl border border-ink-200 bg-white p-5 shadow-xs"
+                >
+                  <Skeleton className="h-6 w-24 rounded-full" />
+                  <Skeleton className="mt-4 h-5 w-3/4" />
+                  <Skeleton className="mt-2 h-4 w-full" />
+                  <Skeleton className="mt-2 h-4 w-2/3" />
+                  <Skeleton className="mt-4 h-4 w-1/2" />
+                  <Skeleton className="mt-6 h-9 w-full rounded-xl" />
+                </div>
+              ))}
             </div>
-          </div>
-        )}
+          ) : uniqueItems.length > 0 ? (
+            <>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {uniqueItems.map((item) => (
+                  <ItemCard key={item.id} item={item} />
+                ))}
+              </div>
+
+              {state.isLoading ? (
+                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <Skeleton variant="rect" className="h-48" />
+                  <Skeleton variant="rect" className="h-48" />
+                  <Skeleton variant="rect" className="h-48" />
+                  <Skeleton variant="rect" className="h-48" />
+                </div>
+              ) : state.hasMore ? (
+                <div className="mt-8 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => void fetchPage('more')}
+                    className={buttonClasses({ variant: 'outline' })}
+                  >
+                    Afficher plus
+                  </button>
+                </div>
+              ) : null}
+            </>
+          ) : !state.isLoading && !state.error ? (
+            <EmptyState
+              title="Aucun objet ne correspond à votre recherche"
+              description="Votre objet n'a pas encore été signalé par un trouveur ? Enregistrez une déclaration de perte : notre moteur vous notifiera dès qu'une correspondance sera trouvée."
+              action={
+                <Link href="/declarer/perdu" className={buttonClasses({ variant: 'primary' })}>
+                  Déclarer mon objet perdu
+                </Link>
+              }
+            />
+          ) : null}
+        </div>
+
+        <div className="mt-10 rounded-2xl border border-ink-200 bg-white p-5 text-caption text-ink-600">
+          <p>
+            Explorez aussi{' '}
+            <Link href="/objets-trouves" className="font-semibold text-brand-700 hover:underline">
+              les derniers objets trouvés
+            </Link>{' '}
+            au Tchad — mise à jour automatique chaque heure.
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -290,7 +420,13 @@ function SearchContent() {
 
 export default function SearchPage() {
   return (
-    <Suspense fallback={<div className="container-liguita py-16 text-center">Chargement de la recherche...</div>}>
+    <Suspense
+      fallback={
+        <div className="container-liguita py-16 text-center text-ink-600">
+          Chargement de la recherche…
+        </div>
+      }
+    >
       <SearchContent />
     </Suspense>
   );
