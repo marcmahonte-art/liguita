@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '../../lib/supabase/server';
 import { tryCreateServiceClient } from '../../lib/supabase/service';
 import { runMatchingForFound } from '../../lib/matching/run';
+import { parseCsvObjects } from '../../lib/business/csv';
 
 export interface BusinessMembership {
   organizationId: string;
@@ -438,6 +439,67 @@ export async function acceptBusinessInvitation(
   if (error || !data) return { error: error?.message ?? 'Invitation invalide.' };
   revalidatePath('/business');
   return { organizationId: data as string };
+}
+
+export async function importBusinessInventoryCsv(
+  organizationId: string,
+  locationId: string,
+  text: string,
+): Promise<{ imported: number; errors: string[] }> {
+  if (text.length > 1_000_000)
+    return { imported: 0, errors: ['Fichier trop volumineux (1 Mo maximum).'] };
+  const { user } = await requireUser();
+  if (!user) return { imported: 0, errors: ['Non connecté.'] };
+  const membership = await membershipFor(user.id, organizationId);
+  if (
+    !membership ||
+    membership.role === 'READONLY' ||
+    (membership.locationId && membership.locationId !== locationId)
+  ) {
+    return { imported: 0, errors: ['Accès refusé.'] };
+  }
+  let rows: Record<string, string>[];
+  try {
+    rows = parseCsvObjects(text);
+  } catch (error) {
+    return { imported: 0, errors: [error instanceof Error ? error.message : 'CSV invalide.'] };
+  }
+  if (rows.length === 0) return { imported: 0, errors: ['CSV vide.'] };
+  if (rows.length > 100) return { imported: 0, errors: ['Maximum 100 lignes par import.'] };
+  const errors: string[] = [];
+  let imported = 0;
+  for (const [index, row] of rows.entries()) {
+    const title = row.title?.trim() ?? '';
+    const categoryCode = row.categorycode ?? row.category_code ?? '';
+    const itemTypeCode = row.itemtypecode ?? row.item_type_code ?? '';
+    const citySlug = row.cityslug ?? row.city_slug ?? '';
+    const placeLabel = row.placelabel ?? row.place_label ?? '';
+    if (!title || !categoryCode || !itemTypeCode || !citySlug || !placeLabel) {
+      errors.push(`Ligne ${index + 2}: champs obligatoires manquants.`);
+      continue;
+    }
+    const result = await createBusinessInventoryItem({
+      organizationId,
+      locationId,
+      categoryCode,
+      itemTypeCode,
+      title,
+      citySlug,
+      placeLabel,
+      description: row.description,
+      building: row.building,
+      floor: row.floor,
+      storageZone: row.storagezone ?? row.storage_zone,
+      cabinet: row.cabinet,
+      locker: row.locker,
+      internalRef: row.internalref ?? row.internal_ref,
+      internalNotes: row.internalnotes ?? row.internal_notes,
+    });
+    if (result.error) errors.push(`Ligne ${index + 2}: ${result.error}`);
+    else imported += 1;
+  }
+  revalidatePath('/business/objets');
+  return { imported, errors };
 }
 
 export async function inviteBusinessMember(

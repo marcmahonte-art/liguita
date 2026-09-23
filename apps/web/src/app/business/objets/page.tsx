@@ -80,9 +80,17 @@ export default function BusinessObjectsPage() {
             Objets déclarés par {dashboard.organization.name}.
           </p>
         </div>
-        <Link href="/business/objets/nouveau" className={buttonClasses({ variant: 'primary' })}>
-          <Plus size={16} /> Ajouter
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/business/objets/import"
+            className={buttonClasses({ variant: 'outline', size: 'sm' })}
+          >
+            Importer CSV
+          </Link>
+          <Link href="/business/objets/nouveau" className={buttonClasses({ variant: 'primary' })}>
+            <Plus size={16} /> Ajouter
+          </Link>
+        </div>
       </header>
       {error ? <Alert tone="danger" title={error} /> : null}
       <div className="grid gap-3 rounded-2xl border border-ink-200 bg-white p-4 sm:grid-cols-3">
