@@ -12,6 +12,7 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type AppRole = 'USER' | 'BUSINESS' | 'MODERATOR' | 'ADMIN';
+export type OrgRole = 'OWNER' | 'ADMIN' | 'MANAGER' | 'AGENT' | 'READONLY';
 
 export type LostStatus =
   | 'DECLARED'
@@ -53,6 +54,71 @@ export interface Profile {
   deleted_at: string | null;
 }
 
+export interface Organization {
+  id: string;
+  country_code: string;
+  name: string;
+  slug: string;
+  logo_url: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  sector: string | null;
+  tax_id: string | null;
+  is_verified: boolean;
+  created_at: string;
+  deleted_at: string | null;
+}
+
+export interface OrganizationLocation {
+  id: string;
+  organization_id: string;
+  name: string;
+  city_slug: string;
+  neighborhood_slug: string | null;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  opening_hours: Json;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface OrganizationUser {
+  id: string;
+  organization_id: string;
+  user_id: string;
+  location_id: string | null;
+  role: OrgRole;
+  invited_by: string | null;
+  accepted_at: string;
+  created_at: string;
+}
+
+export interface OrganizationInvitation {
+  id: string;
+  organization_id: string;
+  location_id: string | null;
+  email: string;
+  role: OrgRole;
+  token: string;
+  invited_by: string;
+  expires_at: string;
+  accepted_at: string | null;
+  created_at: string;
+}
+
+export interface AuditLog {
+  id: number;
+  actor_id: string | null;
+  action: string;
+  target_kind: string | null;
+  target_id: string | null;
+  before: Json | null;
+  after: Json | null;
+  created_at: string;
+}
+
 export interface LostItem {
   id: string;
   user_id: string;
@@ -74,7 +140,7 @@ export interface LostItem {
 
 export interface FoundItem {
   id: string;
-  finder_id: string;
+  finder_id: string | null;
   category_code: string;
   item_type_code: string;
   title: string;
@@ -86,6 +152,19 @@ export interface FoundItem {
   place_label: string;
   found_at: string;
   status: ItemStatus;
+  public_ref: string | null;
+  organization_id: string | null;
+  location_id: string | null;
+  created_by: string | null;
+  building: string | null;
+  floor: string | null;
+  storage_zone: string | null;
+  cabinet: string | null;
+  locker: string | null;
+  internal_ref: string | null;
+  internal_notes: string | null;
+  is_public: boolean;
+  qr_code: string | null;
   created_at: string;
   updated_at: string;
   search_vector?: unknown;
@@ -414,9 +493,53 @@ export interface Database {
       };
       found_items: {
         Row: FoundItem;
-        Insert: Partial<FoundItem> & { finder_id: string; title: string };
+        Insert: Partial<FoundItem> & {
+          category_code: string;
+          item_type_code: string;
+          title: string;
+        };
         Update: Partial<FoundItem>;
       };
+      organizations: {
+        Row: Organization;
+        Insert: Partial<Organization> & { name: string; slug: string };
+        Update: Partial<Organization>;
+      };
+      organization_locations: {
+        Row: OrganizationLocation;
+        Insert: Partial<OrganizationLocation> & {
+          organization_id: string;
+          name: string;
+          city_slug: string;
+        };
+        Update: Partial<OrganizationLocation>;
+      };
+      organization_users: {
+        Row: OrganizationUser;
+        Insert: Partial<OrganizationUser> & {
+          organization_id: string;
+          user_id: string;
+          role: OrgRole;
+        };
+        Update: Partial<OrganizationUser>;
+      };
+      organization_invitations: {
+        Row: OrganizationInvitation;
+        Insert: Partial<OrganizationInvitation> & {
+          organization_id: string;
+          email: string;
+          role: OrgRole;
+          token: string;
+          invited_by: string;
+        };
+        Update: Partial<OrganizationInvitation>;
+      };
+      audit_logs: {
+        Row: AuditLog;
+        Insert: Partial<AuditLog> & { action: string };
+        Update: Partial<AuditLog>;
+      };
+
       item_photos: {
         Row: ItemPhoto;
         Insert: Partial<ItemPhoto> & { item_id: string; url: string };
@@ -607,9 +730,36 @@ export interface Database {
         };
         Returns: { status: PaymentStatus; conversation_id?: string; idempotent: boolean };
       };
+      create_organization: {
+        Args: { p_name: string; p_sector?: string; p_city_slug?: string };
+        Returns: string;
+      };
+      create_organization_location: {
+        Args: {
+          p_organization_id: string;
+          p_name: string;
+          p_city_slug: string;
+          p_address?: string;
+        };
+        Returns: string;
+      };
+      invite_organization_member: {
+        Args: {
+          p_organization_id: string;
+          p_email: string;
+          p_role: OrgRole;
+          p_location_id?: string | null;
+        };
+        Returns: string;
+      };
+      accept_organization_invitation: {
+        Args: { p_token: string };
+        Returns: string;
+      };
     };
     Enums: {
       app_role: AppRole;
+      org_role: OrgRole;
       lost_status: LostStatus;
       item_status: ItemStatus;
       match_level: MatchLevel;

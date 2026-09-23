@@ -146,10 +146,10 @@ faire passer les 18 cas de test dorés **sans en modifier aucun**.
 | Sprint 2 | Objets perdus et trouvés | ✅ |
 | Sprint 3 | Recherche | ✅ |
 | Sprint 4 | Correspondance | ✅ |
-| Sprint 5 | Vérification de propriété | 🚧 en cours |
-| Sprint 6 | Tarification et paiement | ⬜ |
-| Sprint 7 | Mise en relation et restitution | ⬜ |
-| Sprint 8 | Console Business | ⬜ |
+| Sprint 5 | Vérification de propriété | ✅ |
+| Sprint 6 | Tarification et paiement | ✅ |
+| Sprint 7 | Mise en relation et restitution | ✅ |
+| Sprint 8 | Console Business | 🚧 en cours |
 | Sprint 9 | Administration | ⬜ |
 | Sprint 10 | Tests, sécurité, lancement | ⬜ |
 
