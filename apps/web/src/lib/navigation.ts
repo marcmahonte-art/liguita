@@ -10,10 +10,9 @@
  */
 
 import {
-  ArrowLeftRight,
   Bell,
+  Bookmark,
   Building2,
-  FileText,
   HelpCircle,
   Home,
   Info,
@@ -22,6 +21,7 @@ import {
   Package,
   Search,
   User,
+  Users,
   Wallet,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -48,19 +48,33 @@ export const PUBLIC_NAV: readonly NavItem[] = [
 ];
 
 /* -------------------------------------------------------------------------- */
+/* Espace connecté — `/app/*` (Sprint 4)                                       */
+/* -------------------------------------------------------------------------- */
+
+export const APP_NAV: readonly NavItem[] = [
+  { href: '/app', label: 'Tableau de bord', icon: LayoutDashboard },
+  { href: '/app/correspondances', label: 'Correspondances', icon: Users },
+  { href: '/app/objets', label: 'Mes objets', icon: Package },
+  { href: '/app/avis', label: 'Mes avis de recherche', icon: Bookmark },
+  { href: '/app/notifications', label: 'Notifications', icon: Bell },
+  { href: '/app/profil', label: 'Mon profil', icon: User },
+];
+
+/** Navigation du bas mobile — 5 entrées max. */
+export const APP_BOTTOM_NAV: readonly NavItem[] = [
+  { href: '/app', label: 'Accueil', icon: Home },
+  { href: '/app/correspondances', label: 'Matches', icon: Users },
+  { href: '/app/objets', label: 'Objets', icon: Package },
+  { href: '/app/avis', label: 'Avis', icon: Bookmark },
+  { href: '/app/profil', label: 'Profil', icon: User },
+];
+
+/* -------------------------------------------------------------------------- */
 /* Tableau de bord — barre latérale (248 px)                                  */
 /* -------------------------------------------------------------------------- */
 
-export const DASHBOARD_NAV: readonly NavItem[] = [
-  { href: '/dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
-  { href: '/dashboard/search', label: 'Rechercher un objet', icon: Search },
-  { href: '/dashboard/objects', label: 'Mes objets', icon: Package },
-  { href: '/dashboard/announcements', label: 'Mes annonces', icon: FileText },
-  { href: '/dashboard/wallet', label: 'Mon portefeuille', icon: Wallet },
-  { href: '/dashboard/transactions', label: 'Mes transactions', icon: ArrowLeftRight },
-  { href: '/dashboard/notifications', label: 'Notifications', icon: Bell },
-  { href: '/dashboard/profile', label: 'Mon profil', icon: User },
-];
+/** @deprecated Chemins legacy — utiliser APP_NAV. */
+export const DASHBOARD_NAV: readonly NavItem[] = APP_NAV;
 
 /**
  * Séparée visuellement du reste : l'aide n'est pas une section du produit, c'est une

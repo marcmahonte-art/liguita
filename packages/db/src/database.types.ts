@@ -5,7 +5,7 @@
 // (supabase gen types typescript --local > src/database.types.ts)
 //
 // ⚠️ Ce fichier est un squelette manuel aligné sur les migrations
-// 0001–0008. Régénérez-le avec la CLI Supabase dès qu'un projet local
+// 0001–0009. Régénérez-le avec la CLI Supabase dès qu'un projet local
 // ou hébergé est disponible pour obtenir les types exacts de la base.
 // ============================================================
 
@@ -159,6 +159,62 @@ export interface ItemStatusHistory {
   created_at: string;
 }
 
+export type MatchLevel = 'VERY_LIKELY' | 'POSSIBLE' | 'WEAK';
+
+export type MatchStatus =
+  | 'NEW'
+  | 'SEEN'
+  | 'CLAIMED'
+  | 'REJECTED'
+  | 'EXPIRED'
+  | 'CONVERTED';
+
+export interface Match {
+  id: string;
+  lost_item_id: string;
+  found_item_id: string;
+  score: number;
+  level: MatchLevel;
+  breakdown: Json;
+  algorithm_version: string;
+  status: MatchStatus;
+  notified_owner_at: string | null;
+  notified_finder_at: string | null;
+  expires_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  kind: string;
+  channel: string;
+  title: string;
+  body: string | null;
+  payload: Json | null;
+  sent_at: string | null;
+  read_at: string | null;
+  error: string | null;
+  created_at: string;
+}
+
+export interface SavedSearch {
+  id: string;
+  user_id: string;
+  label: string | null;
+  query: string | null;
+  category_code: string | null;
+  city_slug: string | null;
+  neighborhood_slug: string | null;
+  item_type_code: string | null;
+  channels: string[];
+  is_active: boolean;
+  last_run_at: string | null;
+  last_notified_at: string | null;
+  created_at: string;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -187,6 +243,21 @@ export interface Database {
         Insert: Partial<ItemStatusHistory> & { item_id: string; new_status: string };
         Update: Partial<ItemStatusHistory>;
       };
+      matches: {
+        Row: Match;
+        Insert: Partial<Match> & { lost_item_id: string; found_item_id: string; score: number; level: MatchLevel };
+        Update: Partial<Match>;
+      };
+      notifications: {
+        Row: Notification;
+        Insert: Partial<Notification> & { user_id: string; kind: string; title: string };
+        Update: Partial<Notification>;
+      };
+      saved_searches: {
+        Row: SavedSearch;
+        Insert: Partial<SavedSearch> & { user_id: string };
+        Update: Partial<SavedSearch>;
+      };
     };
     Views: {
       public_found_items: {
@@ -200,11 +271,39 @@ export interface Database {
         Args: SearchFoundItemsArgs;
         Returns: SearchFoundItemsRow[];
       };
+      match_candidates_for_found: {
+        Args: { p_found_id: string; p_window_days?: number };
+        Returns: { lost_item_id: string }[];
+      };
+      match_candidates_for_lost: {
+        Args: { p_lost_id: string; p_window_days?: number };
+        Returns: { found_item_id: string }[];
+      };
+      match_sweep_candidates: {
+        Args: { p_window_days?: number; p_limit?: number };
+        Returns: { lost_item_id: string; found_item_id: string }[];
+      };
+      upsert_match: {
+        Args: {
+          p_lost_item_id: string;
+          p_found_item_id: string;
+          p_score: number;
+          p_level: MatchLevel;
+          p_breakdown: Json;
+        };
+        Returns: string;
+      };
+      run_saved_search_alerts: {
+        Args: Record<string, never>;
+        Returns: number;
+      };
     };
     Enums: {
       app_role: AppRole;
       lost_status: LostStatus;
       item_status: ItemStatus;
+      match_level: MatchLevel;
+      match_status: MatchStatus;
     };
     CompositeTypes: Record<string, never>;
   };

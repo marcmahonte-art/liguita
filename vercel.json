@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/match-sweep",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/saved-search-alerts",
+      "schedule": "*/30 * * * *"
+    }
+  ]
+}

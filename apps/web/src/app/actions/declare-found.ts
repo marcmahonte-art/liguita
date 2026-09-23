@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache';
 
 import { createClient } from '../../lib/supabase/server';
+import { tryCreateServiceClient } from '../../lib/supabase/service';
+import { runMatchingForFound } from '../../lib/matching/run';
 
 export interface DeclareFoundResult {
   success: boolean;
@@ -75,6 +77,17 @@ export async function declareFoundItem(formData: FormData): Promise<DeclareFound
     };
   }
 
+  // Matching synchrone (§6.5) — service_role pour lire les pertes des autres
+  // utilisateurs. On ne bloque pas la réponse si le pré-filtrage échoue :
+  // le worker match-sweep rattrapera.
+  try {
+    const service = tryCreateServiceClient();
+    if (service) await runMatchingForFound(service, data.id);
+  } catch {
+    // best-effort
+  }
+
   revalidatePath('/declarer/trouve');
+  revalidatePath('/app/correspondances');
   return { success: true, id: data.id };
 }

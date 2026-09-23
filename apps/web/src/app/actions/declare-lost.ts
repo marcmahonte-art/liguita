@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache';
 
 import { createClient } from '../../lib/supabase/server';
+import { tryCreateServiceClient } from '../../lib/supabase/service';
+import { runMatchingForLost } from '../../lib/matching/run';
 
 export interface DeclareLostResult {
   success: boolean;
@@ -83,6 +85,14 @@ export async function declareLostItem(formData: FormData): Promise<DeclareLostRe
     };
   }
 
+  try {
+    const service = tryCreateServiceClient();
+    if (service) await runMatchingForLost(service, data.id);
+  } catch {
+    // best-effort
+  }
+
   revalidatePath('/declarer/perdu');
+  revalidatePath('/app/correspondances');
   return { success: true, id: data.id };
 }

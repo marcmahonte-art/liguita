@@ -1,6 +1,8 @@
 'use client';
 
 import {
+  Bookmark,
+  BookmarkCheck,
   Filter,
   Search,
   ShieldCheck,
@@ -13,6 +15,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { CATEGORIES, NEIGHBORHOODS } from '@liguita/config';
 import { Alert, buttonClasses, cn, EmptyState, Skeleton } from '@liguita/ui';
 
+import { saveSearch } from '../../actions/saved-searches';
 import { ItemCard } from '../../../components/public/ItemCard';
 import { createClient } from '../../../lib/supabase/client';
 import { toPublicItem, type PublicItem } from '../../../lib/search';
@@ -56,6 +59,10 @@ function SearchContent() {
   const [selectedNeighborhood, setSelectedNeighborhood] = useState(urlNeighborhood);
   const [isOnline, setIsOnline] = useState(true);
   const [retryToken, setRetryToken] = useState(0);
+  const [saveState, setSaveState] = useState<{
+    status: 'idle' | 'saving' | 'saved' | 'error';
+    message?: string;
+  }>({ status: 'idle' });
 
   const [state, setState] = useState<SearchState>(INITIAL_STATE);
   const cursorRef = useRef<{ foundAt: string | null; id: string | null }>({
@@ -207,6 +214,29 @@ function SearchContent() {
     setSelectedNeighborhood('ALL');
   };
 
+  const handleSaveSearch = async () => {
+    if (saveState.status === 'saving' || saveState.status === 'saved') return;
+    setSaveState({ status: 'saving' });
+    try {
+      const result = await saveSearch({
+        label: query.trim() || undefined,
+        query: query.trim() || undefined,
+        categoryCode: selectedCategory === 'ALL' ? undefined : selectedCategory,
+        neighborhoodSlug: selectedNeighborhood === 'ALL' ? undefined : selectedNeighborhood,
+      });
+      if (result.ok) {
+        setSaveState({ status: 'saved' });
+      } else {
+        setSaveState({ status: 'error', message: result.error });
+      }
+    } catch {
+      setSaveState({
+        status: 'error',
+        message: 'Connectez-vous pour enregistrer cette recherche.',
+      });
+    }
+  };
+
   return (
     <div className="bg-ink-50/40 min-h-screen py-10 sm:py-14">
       <div className="container-liguita">
@@ -316,17 +346,49 @@ function SearchContent() {
           </div>
         </div>
 
-        <div className="mt-6 flex items-center justify-between">
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
           <p className="text-body-sm font-semibold text-ink-700" aria-live="polite">
             {state.isLoading
               ? 'Recherche en cours…'
               : `${uniqueItems.length} ${uniqueItems.length <= 1 ? 'résultat trouvé' : 'résultats trouvés'}`}
           </p>
-          <div className="flex items-center gap-1.5 text-caption text-ink-500">
-            <ShieldCheck size={16} className="text-emerald-600" aria-hidden />
-            <span>Données privées protégées (loi n° 007/PR/2015)</span>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => void handleSaveSearch()}
+              disabled={saveState.status === 'saving' || saveState.status === 'saved'}
+              className={cn(
+                buttonClasses({ variant: saveState.status === 'saved' ? 'outline' : 'primary', size: 'sm' }),
+                saveState.status === 'saved' && 'border-emerald-300 text-emerald-700',
+              )}
+              aria-live="polite"
+            >
+              {saveState.status === 'saving' ? (
+                'Enregistrement…'
+              ) : saveState.status === 'saved' ? (
+                <>
+                  <BookmarkCheck size={15} aria-hidden />
+                  Recherche enregistrée
+                </>
+              ) : (
+                <>
+                  <Bookmark size={15} aria-hidden />
+                  Enregistrer cette recherche
+                </>
+              )}
+            </button>
+            <div className="flex items-center gap-1.5 text-caption text-ink-500">
+              <ShieldCheck size={16} className="text-emerald-600" aria-hidden />
+              <span>Données privées protégées (loi n° 007/PR/2015)</span>
+            </div>
           </div>
         </div>
+
+        {saveState.status === 'error' && saveState.message ? (
+          <Alert tone="warning" title="Enregistrement impossible" className="mt-3">
+            {saveState.message}
+          </Alert>
+        ) : null}
 
         {state.error ? (
           <Alert
