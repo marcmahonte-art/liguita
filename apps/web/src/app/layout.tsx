@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 
 import '@liguita/ui/globals.css';
 
+import { ServiceWorkerRegister } from '../components/public/ServiceWorkerRegister';
 import { AuthProvider } from '../lib/auth/auth-context';
 import { fontVariables } from '../fonts';
 
@@ -55,6 +56,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="fr" className={fontVariables}>
       <body className="min-h-screen bg-surface-page font-body text-ink-900 antialiased">
+        <ServiceWorkerRegister />
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>

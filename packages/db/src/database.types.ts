@@ -13,6 +13,7 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 
 export type AppRole = 'USER' | 'BUSINESS' | 'MODERATOR' | 'ADMIN';
 export type OrgRole = 'OWNER' | 'ADMIN' | 'MANAGER' | 'AGENT' | 'READONLY';
+export type ReportReason = 'FAKE_FOUND_ITEM' | 'FAKE_OWNER' | 'FAKE_PAYMENT' | 'DUPLICATE_CLAIM' | 'OFF_PLATFORM_SOLICITATION' | 'INAPPROPRIATE_CONTENT' | 'OTHER';
 
 export type LostStatus =
   | 'DECLARED'
@@ -111,12 +112,44 @@ export interface OrganizationInvitation {
 export interface AuditLog {
   id: number;
   actor_id: string | null;
+  actor_role: AppRole | null;
   action: string;
   target_kind: string | null;
   target_id: string | null;
   before: Json | null;
   after: Json | null;
+  ip: string | null;
+  user_agent: string | null;
   created_at: string;
+}
+
+export interface DataAccessLog {
+  id: number;
+  actor_id: string | null;
+  actor_role: AppRole | null;
+  data_kind: string;
+  resource_type: string;
+  resource_id: string | null;
+  purpose: string | null;
+  fields_accessed: string[];
+  created_at: string;
+}
+
+export interface Report {
+  id: string;
+  reporter_id: string;
+  target_user_id: string | null;
+  target_item_id: string | null;
+  target_message_id: string | null;
+  target_transaction_id: string | null;
+  reason: string;
+  details: string;
+  status: 'OPEN' | 'REVIEWING' | 'RESOLVED' | 'DISMISSED';
+  assigned_to: string | null;
+  resolution: string | null;
+  created_at: string;
+  reviewed_at: string | null;
+  closed_at: string | null;
 }
 
 export interface LostItem {
@@ -390,6 +423,7 @@ export interface Refund {
   reason: string;
   status: RefundStatus;
   provider_reference: string | null;
+  idempotency_key: string | null;
   created_at: string;
   completed_at: string | null;
 }
@@ -537,7 +571,17 @@ export interface Database {
       audit_logs: {
         Row: AuditLog;
         Insert: Partial<AuditLog> & { action: string };
-        Update: Partial<AuditLog>;
+        Update: never;
+      };
+      data_access_logs: {
+        Row: DataAccessLog;
+        Insert: Partial<DataAccessLog> & { data_kind: string; resource_type: string };
+        Update: never;
+      };
+      reports: {
+        Row: Report;
+        Insert: Partial<Report> & { reporter_id: string; reason: string; details: string };
+        Update: Partial<Report>;
       };
 
       item_photos: {
@@ -756,6 +800,32 @@ export interface Database {
         Args: { p_token: string };
         Returns: string;
       };
+      is_platform_staff: {
+        Args: Record<string, never>;
+        Returns: boolean;
+      };
+      is_platform_admin: {
+        Args: Record<string, never>;
+        Returns: boolean;
+      };
+      create_refund: {
+        Args: { p_transaction_id: string; p_amount: number; p_reason: string; p_idempotency_key: string };
+        Returns: string;
+      };
+      publish_pricing_rule: {
+        Args: {
+          p_country_code: string;
+          p_currency: string;
+          p_fees: Json;
+          p_rewards: Json;
+          p_c5: Json;
+          p_options: Json;
+          p_tax: Json;
+          p_thresholds: Json;
+          p_value_bands: Json;
+        };
+        Returns: string;
+      };
     };
     Enums: {
       app_role: AppRole;
@@ -768,6 +838,7 @@ export interface Database {
       payment_status: PaymentStatus;
       reward_status: RewardStatus;
       refund_status: RefundStatus;
+      report_reason: ReportReason;
     };
     CompositeTypes: Record<string, never>;
   };

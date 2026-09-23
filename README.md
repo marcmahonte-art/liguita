@@ -150,8 +150,8 @@ faire passer les 18 cas de test dorés **sans en modifier aucun**.
 | Sprint 6 | Tarification et paiement | ✅ |
 | Sprint 7 | Mise en relation et restitution | ✅ |
 | Sprint 8 | Console Business | 🚧 en cours |
-| Sprint 9 | Administration | ⬜ |
-| Sprint 10 | Tests, sécurité, lancement | ⬜ |
+| Sprint 9 | Administration | 🚧 en cours |
+| Sprint 10 | Tests, sécurité, lancement | 🚧 en cours |
 
 Détail des tâches, critères d'acceptation et estimations : voir
 [`docs/Liguita_Plan_Implementation_v3.md`](docs/Liguita_Plan_Implementation_v3.md) §16.
