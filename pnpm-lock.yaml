@@ -29,6 +29,9 @@ importers:
       '@liguita/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@liguita/payments':
+        specifier: workspace:*
+        version: link:../../packages/payments
       '@liguita/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -119,6 +122,15 @@ importers:
       typescript:
         specifier: ^5.7.3
         version: 5.9.3
+
+  packages/payments:
+    devDependencies:
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.4)
 
   packages/ui:
     dependencies:

@@ -43,6 +43,7 @@ export const PUBLIC_NAV: readonly NavItem[] = [
   { href: '/', label: 'Accueil', icon: Home },
   { href: '/rechercher', label: 'Rechercher', icon: Search },
   { href: '/objets-trouves', label: 'Objets trouvés', icon: Package },
+  { href: '/tarifs', label: 'Tarifs', icon: Wallet },
   { href: '/about', label: 'À propos', icon: Info },
   { href: '/business', label: 'Entreprises', icon: Building2 },
   { href: '/help', label: 'Aide', icon: HelpCircle },

@@ -8,7 +8,6 @@ import { useEffect, useState, useTransition } from 'react';
 import { Badge, buttonClasses, Skeleton } from '@liguita/ui';
 
 import { getMatchDetail, setMatchStatus, type MatchDetail } from '../../../actions/matches';
-import { openConversation } from '../../../actions/conversations';
 import { useAuth } from '../../../../lib/auth/auth-context';
 import { formatLongDate } from '../../../../lib/format';
 
@@ -67,11 +66,7 @@ export default function MatchDetailPage() {
 
   function handleOpenConversation() {
     if (!item) return;
-    startTransition(async () => {
-      const result = await openConversation(item.id);
-      if (result.conversationId) router.push(`/app/messages/${result.conversationId}`);
-      else if (result.error) setError(result.error);
-    });
+    router.push(`/app/correspondances/${item.id}/paiement`);
   }
 
   if (isLoading) {
@@ -220,7 +215,7 @@ export default function MatchDetailPage() {
               onClick={handleOpenConversation}
               className={buttonClasses({ variant: 'outline' })}
             >
-              <MessageCircle size={16} /> Ouvrir la conversation
+              <MessageCircle size={16} /> Payer et mettre en relation
             </button>
           ) : null}
           <button

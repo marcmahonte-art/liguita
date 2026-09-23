@@ -190,6 +190,10 @@ export interface Notification {
 }
 
 export type ConversationStatus = 'OPEN' | 'RETURN_PENDING' | 'RETURNED' | 'CLOSED' | 'DISPUTED';
+export type PaymentStatus =
+  'INITIATED' | 'PENDING' | 'PAID' | 'FAILED' | 'CANCELLED' | 'REFUNDED' | 'PARTIALLY_REFUNDED';
+export type RewardStatus = 'PENDING' | 'RESERVED' | 'RELEASED' | 'FORFEITED' | 'DONATED';
+export type RefundStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'REJECTED';
 
 export interface Conversation {
   id: string;
@@ -217,6 +221,98 @@ export interface Message {
   flagged: boolean;
   read_at: string | null;
   created_at: string;
+}
+
+export interface PriceQuote {
+  id: string;
+  public_ref: string;
+  claim_id: string | null;
+  match_id: string;
+  payer_id: string;
+  pricing_rule_id: string;
+  pricing_rule_version: number;
+  pricing_class: 'C1' | 'C2' | 'C3' | 'C4' | 'C5';
+  declared_value_xaf: number | null;
+  base_fee: number;
+  urgent_fee: number;
+  conciergerie_fee: number;
+  delivery_fee: number;
+  community_bonus: number;
+  total_amount: number;
+  currency: string;
+  reward_amount: number;
+  liguita_commission: number;
+  delivery_payout: number;
+  vat_amount: number;
+  options: string[];
+  breakdown: Json;
+  status: 'OPEN' | 'CONSUMED' | 'EXPIRED' | 'VOID';
+  expires_at: string;
+  created_at: string;
+  consumed_at: string | null;
+}
+
+export interface Transaction {
+  id: string;
+  public_ref: string;
+  quote_id: string;
+  payer_id: string;
+  match_id: string;
+  amount: number;
+  currency: string;
+  provider: string;
+  provider_reference: string | null;
+  provider_payload: Json | null;
+  status: PaymentStatus;
+  failure_reason: string | null;
+  idempotency_key: string;
+  initiated_at: string;
+  completed_at: string | null;
+  refunded_at: string | null;
+  refund_amount: number;
+  reward_amount: number;
+  community_bonus: number;
+  liguita_commission: number;
+  delivery_payout: number;
+  vat_amount: number;
+  created_at: string;
+}
+
+export interface Reward {
+  id: string;
+  transaction_id: string;
+  beneficiary_id: string;
+  amount: number;
+  currency: string;
+  status: RewardStatus;
+  mode: 'STANDARD' | 'SOLIDARITY' | 'CREDIT';
+  payout_provider: string | null;
+  payout_reference: string | null;
+  reserved_at: string | null;
+  released_at: string | null;
+  created_at: string;
+}
+
+export interface LedgerEntry {
+  id: number;
+  transaction_id: string;
+  account: string;
+  direction: 'DEBIT' | 'CREDIT';
+  amount: number;
+  currency: string;
+  label: string;
+  created_at: string;
+}
+
+export interface Refund {
+  id: string;
+  transaction_id: string;
+  amount: number;
+  reason: string;
+  status: RefundStatus;
+  provider_reference: string | null;
+  created_at: string;
+  completed_at: string | null;
 }
 
 export interface SavedSearch {
@@ -356,6 +452,71 @@ export interface Database {
         Insert: Partial<Message> & { conversation_id: string; sender_id: string; body: string };
         Update: Partial<Message>;
       };
+      price_quotes: {
+        Row: PriceQuote;
+        Insert: Partial<PriceQuote> & {
+          match_id: string;
+          payer_id: string;
+          pricing_rule_id: string;
+        };
+        Update: Partial<PriceQuote>;
+      };
+      transactions: {
+        Row: Transaction;
+        Insert: Partial<Transaction> & {
+          quote_id: string;
+          payer_id: string;
+          match_id: string;
+          amount: number;
+          provider: string;
+          idempotency_key: string;
+        };
+        Update: Partial<Transaction>;
+      };
+      rewards: {
+        Row: Reward;
+        Insert: Partial<Reward> & {
+          transaction_id: string;
+          beneficiary_id: string;
+          amount: number;
+        };
+        Update: Partial<Reward>;
+      };
+      ledger_entries: {
+        Row: LedgerEntry;
+        Insert: Partial<LedgerEntry> & {
+          transaction_id: string;
+          account: string;
+          direction: 'DEBIT' | 'CREDIT';
+          amount: number;
+          label: string;
+        };
+        Update: never;
+      };
+      payment_events: {
+        Row: {
+          id: string;
+          transaction_id: string;
+          provider: string;
+          event_id: string;
+          event_type: string;
+          payload: Json;
+          received_at: string;
+        };
+        Insert: {
+          transaction_id: string;
+          provider: string;
+          event_id: string;
+          event_type: string;
+          payload: Json;
+        };
+        Update: never;
+      };
+      refunds: {
+        Row: Refund;
+        Insert: Partial<Refund> & { transaction_id: string; amount: number; reason: string };
+        Update: Partial<Refund>;
+      };
       saved_searches: {
         Row: SavedSearch;
         Insert: Partial<SavedSearch> & { user_id: string };
@@ -433,6 +594,19 @@ export interface Database {
         Args: { p_conversation_id: string; p_side: 'OWNER' | 'FINDER' };
         Returns: { status: ConversationStatus; completed: boolean };
       };
+      create_payment_transaction: {
+        Args: { p_quote_id: string; p_idempotency_key: string; p_provider: string };
+        Returns: string;
+      };
+      mark_payment_paid: {
+        Args: {
+          p_transaction_id: string;
+          p_provider_reference: string;
+          p_payload: Json;
+          p_event_id: string;
+        };
+        Returns: { status: PaymentStatus; conversation_id?: string; idempotent: boolean };
+      };
     };
     Enums: {
       app_role: AppRole;
@@ -441,6 +615,9 @@ export interface Database {
       match_level: MatchLevel;
       match_status: MatchStatus;
       claim_status: ClaimStatus;
+      payment_status: PaymentStatus;
+      reward_status: RewardStatus;
+      refund_status: RefundStatus;
     };
     CompositeTypes: Record<string, never>;
   };

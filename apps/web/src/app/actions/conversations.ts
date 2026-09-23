@@ -129,12 +129,14 @@ export async function openConversation(
 ): Promise<{ conversationId?: string; error?: string }> {
   const { supabase, user } = await requireUser();
   if (!user) return { error: 'Non connecté' };
-  const { data, error } = await supabase.rpc('create_conversation_for_match', {
-    p_match_id: matchId,
-  });
-  if (error || !data) return { error: error?.message ?? 'Conversation indisponible.' };
-  revalidatePath('/app/messages');
-  return { conversationId: data as string };
+  const { data: conversation } = await supabase
+    .from('conversations')
+    .select('id')
+    .eq('match_id', matchId)
+    .maybeSingle();
+  if (!conversation)
+    return { error: 'Le paiement doit être confirmé avant l’ouverture de la conversation.' };
+  return { conversationId: conversation.id };
 }
 
 export async function getConversation(

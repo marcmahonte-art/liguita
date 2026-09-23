@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/notify-dispatch",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/payment-reconcile",
+      "schedule": "*/10 * * * *"
     }
   ]
 }

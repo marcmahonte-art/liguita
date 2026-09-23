@@ -1,3 +1,5 @@
+import 'server-only';
+
 import { createClient as createSupabaseClient, type SupabaseClient } from '@supabase/supabase-js';
 
 /**
@@ -16,9 +18,7 @@ export function createServiceClient(): SupabaseClient {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !serviceKey) {
-    throw new Error(
-      'SUPABASE_SERVICE_ROLE_KEY manquante — impossible de créer le client service.',
-    );
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY manquante — impossible de créer le client service.');
   }
 
   return createSupabaseClient(url, serviceKey, {
