@@ -1,0 +1,30 @@
+{
+  "name": "liguita",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liguita — plateforme tchadienne des objets perdus et retrouvés",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.15.9",
+  "scripts": {
+    "dev": "pnpm --filter @liguita/web dev",
+    "build": "pnpm -r --filter './packages/**' build && pnpm --filter @liguita/web build",
+    "start": "pnpm --filter @liguita/web start",
+    "test": "pnpm -r test",
+    "test:watch": "pnpm -r test:watch",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
+    "docs:build": "python docs/_build/md_to_html.py",
+    "clean": "rimraf \"**/node_modules\" \"**/.next\" \"**/dist\" \"**/.turbo\""
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "prettier": "^3.4.2",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.7.3"
+  }
+}

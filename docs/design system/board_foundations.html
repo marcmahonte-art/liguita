@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Liguita — Design System · Foundations</title>
+<style>
+  :root {
+    /* Couleurs extraites du logo Liguita (#E50F1A) */
+    --red-50:  #FDECEE;
+    --red-100: #FBD5D9;
+    --red-200: #F4A5AD;
+    --red-300: #EC6E7A;
+    --red-400: #E53947;
+    --red-500: #E50F1A;   /* Couleur logo */
+    --red-600: #C70D17;   /* hover */
+    --red-700: #A30A12;
+    --red-800: #7E070E;
+    --red-900: #56040A;
+
+    --ink-0:   #FFFFFF;
+    --ink-50:  #F7F8FA;
+    --ink-100: #EEF1F5;
+    --ink-200: #DEE3EA;
+    --ink-300: #B7BEC9;
+    --ink-400: #8A929E;
+    --ink-500: #5B6470;
+    --ink-700: #2A2F38;
+    --ink-900: #0E1116;   /* Equiv. Uber Black */
+
+    --success: #16A34A;
+    --warning: #F59E0B;
+    --danger:  #DC2626;
+    --info:    #2563EB;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #F2F3F5; }
+  body {
+    font-family: "Inter", "Helvetica Neue", "Arial", system-ui, sans-serif;
+    color: var(--ink-900);
+    -webkit-font-smoothing: antialiased;
+  }
+  .board {
+    width: 1600px;
+    padding: 56px 64px;
+    background: #FFF;
+    margin: 0 auto;
+  }
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding-bottom: 24px; border-bottom: 1px solid var(--ink-200);
+  }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .brand img { height: 48px; }
+  .brand-meta { display: flex; flex-direction: column; gap: 2px; }
+  .brand-meta b { font-size: 16px; letter-spacing: -0.01em; }
+  .brand-meta span { font-size: 12px; color: var(--ink-500); }
+  .meta-right { font-size: 12px; color: var(--ink-500); text-align: right; line-height: 1.5; }
+
+  h1 { font-size: 56px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; margin: 28px 0 8px; color: var(--ink-900); }
+  .lede { font-size: 18px; color: var(--ink-500); max-width: 720px; line-height: 1.5; margin-bottom: 40px; }
+
+  section { margin-top: 56px; }
+  .sec-head { display:flex; align-items:baseline; justify-content:space-between; margin-bottom: 24px; }
+  .sec-head h2 { font-size: 28px; font-weight: 800; letter-spacing: -0.01em; margin: 0; }
+  .sec-head .num { font-size: 12px; font-weight: 700; color: var(--red-500); letter-spacing: 0.16em; text-transform: uppercase; }
+
+  /* Couleurs */
+  .color-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 12px; }
+  .swatch { border: 1px solid var(--ink-200); border-radius: 12px; overflow: hidden; background: #fff; }
+  .swatch .chip { height: 96px; }
+  .swatch .info { padding: 12px 14px; }
+  .swatch .name { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-700); }
+  .swatch .hex { font-size: 12px; color: var(--ink-500); margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .role { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+  .role-card { border: 1px solid var(--ink-200); border-radius: 12px; padding: 16px; }
+  .role-card .name { font-size: 12px; color: var(--ink-500); letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700; }
+  .role-card .chip { height: 56px; border-radius: 8px; margin: 12px 0 8px; }
+  .role-card .hex { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  /* Typo */
+  .type-row { display: grid; grid-template-columns: 80px 1fr 220px; gap: 24px; align-items: baseline; padding: 18px 0; border-bottom: 1px solid var(--ink-200); }
+  .type-row .label { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-500); }
+  .type-row .spec { font-size: 12px; color: var(--ink-500); font-variant-numeric: tabular-nums; text-align: right; }
+  .t-display { font-size: 64px; font-weight: 800; letter-spacing: -0.02em; line-height: 1; }
+  .t-h1      { font-size: 40px; font-weight: 800; letter-spacing: -0.015em; line-height: 1.1; }
+  .t-h2      { font-size: 28px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.2; }
+  .t-h3      { font-size: 20px; font-weight: 700; letter-spacing: -0.005em; line-height: 1.3; }
+  .t-body-lg { font-size: 18px; line-height: 1.5; }
+  .t-body    { font-size: 16px; line-height: 1.5; }
+  .t-caption { font-size: 13px; color: var(--ink-500); line-height: 1.4; }
+  .t-overline{ font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-700); }
+
+  /* Espacement */
+  .space-row { display: flex; align-items: center; gap: 32px; padding: 12px 0; border-bottom: 1px solid var(--ink-200); }
+  .space-row .label { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-700); width: 80px; }
+  .space-row .px { font-size: 12px; color: var(--ink-500); width: 80px; font-variant-numeric: tabular-nums; }
+  .space-row .bar { background: var(--red-500); height: 12px; border-radius: 3px; }
+
+  /* Radius */
+  .radius-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; }
+  .radius-card { padding: 16px; border: 1px solid var(--ink-200); border-radius: 12px; text-align: center; }
+  .radius-shape { width: 80px; height: 80px; background: var(--ink-900); margin: 0 auto 12px; }
+  .radius-card .name { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-700); }
+  .radius-card .px { font-size: 12px; color: var(--ink-500); margin-top: 4px; font-variant-numeric: tabular-nums; }
+
+  /* Ombres */
+  .shadow-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
+  .shadow-card { padding: 32px 24px; border-radius: 16px; background: #fff; text-align: left; }
+  .shadow-card .name { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-700); }
+  .shadow-card .val { font-size: 12px; color: var(--ink-500); margin-top: 8px; font-variant-numeric: tabular-nums; line-height: 1.5; }
+  .sh-100 { box-shadow: 0 1px 2px rgba(14,17,22,.06), 0 1px 1px rgba(14,17,22,.04); }
+  .sh-200 { box-shadow: 0 4px 12px rgba(14,17,22,.08), 0 2px 4px rgba(14,17,22,.04); }
+  .sh-300 { box-shadow: 0 12px 32px rgba(14,17,22,.10), 0 4px 8px rgba(14,17,22,.05); }
+  .sh-overlay { box-shadow: 0 20px 60px rgba(14,17,22,.18), 0 8px 16px rgba(14,17,22,.08); }
+</style>
+</head>
+<body>
+<div class="board">
+
+  <div class="topbar">
+    <div class="brand">
+      <img src="https://www.genspark.ai/api/files/s/Dv3hphDl" alt="Liguita" />
+      <div class="brand-meta">
+        <b>Liguita Design System</b>
+        <span>Foundations · v1.0</span>
+      </div>
+    </div>
+    <div class="meta-right">
+      SaaS tchadien d'objets perdus &amp; retrouvés<br>
+      21 septembre 2026
+    </div>
+  </div>
+
+  <h1>Fondations du design.</h1>
+  <p class="lede">Une base neutre et haute contraste, ponctuée par le rouge Liguita extrait directement du logo. Inspiration Uber Move : typographie grotesque,Whitespace généreux, mono‑accent,severe mais accessible.</p>
+
+  <!-- Couleurs -->
+  <section>
+    <div class="sec-head">
+      <h2>Palette</h2>
+      <div class="num">01 — Couleur</div>
+    </div>
+
+    <div class="color-grid">
+      <div class="swatch"><div class="chip" style="background:var(--red-50)"></div><div class="info"><div class="name">red 50</div><div class="hex">#FDECEE</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--red-100)"></div><div class="info"><div class="name">red 100</div><div class="hex">#FBD5D9</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--red-200)"></div><div class="info"><div class="name">red 200</div><div class="hex">#F4A5AD</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--red-300)"></div><div class="info"><div class="name">red 300</div><div class="hex">#EC6E7A</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--red-400)"></div><div class="info"><div class="name">red 400</div><div class="hex">#E53947</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--red-500)"></div><div class="info"><div class="name">red 500</div><div class="hex">#E50F1A</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--red-600)"></div><div class="info"><div class="name">red 600</div><div class="hex">#C70D17</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--red-700)"></div><div class="info"><div class="name">red 700</div><div class="hex">#A30A12</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--red-800)"></div><div class="info"><div class="name">red 800</div><div class="hex">#7E070E</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--red-900)"></div><div class="info"><div class="name">red 900</div><div class="hex">#56040A</div></div></div>
+    </div>
+
+    <div class="role">
+      <div class="role-card">
+        <div class="name">Brand — couleur logo Liguita</div>
+        <div class="chip" style="background: var(--red-500);"></div>
+        <div class="hex">#E50F1A — extraite du logo</div>
+      </div>
+      <div class="role-card">
+        <div class="name">Ink — Texte principal</div>
+        <div class="chip" style="background: var(--ink-900);"></div>
+        <div class="hex">#0E1116</div>
+      </div>
+      <div class="role-card">
+        <div class="name">Surface — fond application</div>
+        <div class="chip" style="background: var(--ink-0); border: 1px solid var(--ink-200);"></div>
+        <div class="hex">#FFFFFF</div>
+      </div>
+      <div class="role-card">
+        <div class="name">Surfaces chaudes / hover</div>
+        <div class="chip" style="background: var(--ink-50); border: 1px solid var(--ink-200);"></div>
+        <div class="hex">#F7F8FA</div>
+      </div>
+
+      <div class="role-card">
+        <div class="name">Success — restitution / vert</div>
+        <div class="chip" style="background: var(--success);"></div>
+        <div class="hex">#16A34A</div>
+      </div>
+      <div class="role-card">
+        <div class="name">Warning — alerte / orange</div>
+        <div class="chip" style="background: var(--warning);"></div>
+        <div class="hex">#F59E0B</div>
+      </div>
+      <div class="role-card">
+        <div class="name">Danger — perte / critique</div>
+        <div class="chip" style="background: var(--danger);"></div>
+        <div class="hex">#DC2626</div>
+      </div>
+      <div class="role-card">
+        <div class="name">Info — information / lien</div>
+        <div class="chip" style="background: var(--info);"></div>
+        <div class="hex">#2563EB</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Typo -->
+  <section>
+    <div class="sec-head">
+      <h2>Typographie</h2>
+      <div class="num">02 — Type</div>
+    </div>
+    <div class="type-row"><div class="label">Display</div><div class="t-display">J'ai trouvé, tu as perdu.</div><div class="spec">64 · 800 · -0.02em</div></div>
+    <div class="type-row"><div class="label">H1</div><div class="t-h1">Recherchez un objet retrouvé.</div><div class="spec">40 · 800 · -0.015em</div></div>
+    <div class="type-row"><div class="label">H2</div><div class="t-h2">Mise en relation sécurisée.</div><div class="spec">28 · 700 · -0.01em</div></div>
+    <div class="type-row"><div class="label">H3</div><div class="t-h3">Détails de la déclaration</div><div class="spec">20 · 700 · -0.005em</div></div>
+    <div class="type-row"><div class="label">Body L</div><div class="t-body-lg">Un reçu horodaté est généré après chaque restitution.</div><div class="spec">18 · 400 · 1.5</div></div>
+    <div class="type-row"><div class="label">Body</div><div class="t-body">Entrez votre numéro de téléphone — un OTP vous sera envoyé.</div><div class="spec">16 · 400 · 1.5</div></div>
+    <div class="type-row"><div class="label">Caption</div><div class="t-caption">Frais de mise en relation : 300 FCFA pour la classe C1 — documents.</div><div class="spec">13 · 400 · 1.4</div></div>
+    <div class="type-row"><div class="label">Overline</div><div class="t-overline">Liguita · Tchad · 2026</div><div class="spec">11 · 700 · 0.12em</div></div>
+  </section>
+
+  <!-- Espacement -->
+  <section>
+    <div class="sec-head">
+      <h2>Espacement</h2>
+      <div class="num">03 — Space</div>
+    </div>
+    <div class="space-row"><div class="label">xs</div><div class="bar" style="width:4px"></div><div class="px">4 px</div></div>
+    <div class="space-row"><div class="label">sm</div><div class="bar" style="width:8px"></div><div class="px">8 px</div></div>
+    <div class="space-row"><div class="label">md</div><div class="bar" style="width:12px"></div><div class="px">12 px</div></div>
+    <div class="space-row"><div class="label">lg</div><div class="bar" style="width:16px"></div><div class="px">16 px</div></div>
+    <div class="space-row"><div class="label">xl</div><div class="bar" style="width:24px"></div><div class="px">24 px</div></div>
+    <div class="space-row"><div class="label">2xl</div><div class="bar" style="width:32px"></div><div class="px">32 px</div></div>
+    <div class="space-row"><div class="label">3xl</div><div class="bar" style="width:48px"></div><div class="px">48 px</div></div>
+    <div class="space-row"><div class="label">4xl</div><div class="bar" style="width:64px"></div><div class="px">64 px</div></div>
+    <div class="space-row"><div class="label">5xl</div><div class="bar" style="width:96px"></div><div class="px">96 px</div></div>
+  </section>
+
+  <!-- Radius -->
+  <section>
+    <div class="sec-head">
+      <h2>Rayons de bordure</h2>
+      <div class="num">04 — Radius</div>
+    </div>
+    <div class="radius-grid">
+      <div class="radius-card"><div class="radius-shape" style="border-radius:0"></div><div class="name">none</div><div class="px">0 px</div></div>
+      <div class="radius-card"><div class="radius-shape" style="border-radius:4px"></div><div class="name">sm</div><div class="px">4 px</div></div>
+      <div class="radius-card"><div class="radius-shape" style="border-radius:8px"></div><div class="name">md</div><div class="px">8 px</div></div>
+      <div class="radius-card"><div class="radius-shape" style="border-radius:12px"></div><div class="name">lg</div><div class="px">12 px</div></div>
+      <div class="radius-card"><div class="radius-shape" style="border-radius:16px"></div><div class="name">xl</div><div class="px">16 px</div></div>
+      <div class="radius-card"><div class="radius-shape" style="border-radius:999px"></div><div class="name">pill</div><div class="px">999 px</div></div>
+    </div>
+  </section>
+
+  <!-- Ombres -->
+  <section>
+    <div class="sec-head">
+      <h2>Ombres</h2>
+      <div class="num">05 — Elevation</div>
+    </div>
+    <div class="shadow-grid">
+      <div class="shadow-card sh-100"><div class="name">level 100</div><div class="val">0 1px 2px rgba(14,17,22,.06)<br>0 1px 1px rgba(14,17,22,.04)</div></div>
+      <div class="shadow-card sh-200"><div class="name">level 200</div><div class="val">0 4px 12px rgba(14,17,22,.08)<br>0 2px 4px rgba(14,17,22,.04)</div></div>
+      <div class="shadow-card sh-300"><div class="name">level 300</div><div class="val">0 12px 32px rgba(14,17,22,.10)<br>0 4px 8px rgba(14,17,22,.05)</div></div>
+      <div class="shadow-card sh-overlay"><div class="name">overlay</div><div class="val">0 20px 60px rgba(14,17,22,.18)<br>0 8px 16px rgba(14,17,22,.08)</div></div>
+    </div>
+  </section>
+
+</div>
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495" integrity="sha512-iIg7k2xntmwu6/uSb5tpc/hySgZc4eoL31yB29W6tJFo2akwjPWcEqnCEdJvGexCL0KEQwVYv5BlowfhVz26hg==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","spa":2}' crossorigin="anonymous"></script>
+</body>
+</html>

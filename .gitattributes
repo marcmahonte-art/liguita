@@ -1,0 +1,19 @@
+# Normalisation des fins de ligne — toujours LF dans le dépôt
+* text=auto eol=lf
+
+# Fichiers binaires
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.avif binary
+*.ico binary
+*.xlsx binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+
+# Diffs lisibles
+*.md diff=markdown
+package-lock.json -diff
+pnpm-lock.yaml -diff

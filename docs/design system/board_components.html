@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Liguita — Design System · Components</title>
+<style>
+  :root {
+    --red-50:  #FDECEE;
+    --red-100: #FBD5D9;
+    --red-300: #EC6E7A;
+    --red-500: #E50F1A;
+    --red-600: #C70D17;
+    --red-700: #A30A12;
+    --ink-0:   #FFFFFF;
+    --ink-50:  #F7F8FA;
+    --ink-100: #EEF1F5;
+    --ink-200: #DEE3EA;
+    --ink-300: #B7BEC9;
+    --ink-400: #8A929E;
+    --ink-500: #5B6470;
+    --ink-700: #2A2F38;
+    --ink-900: #0E1116;
+    --success: #16A34A;
+    --warning: #F59E0B;
+    --danger:  #DC2626;
+    --info:    #2563EB;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #F2F3F5; }
+  body { font-family: "Inter", "Helvetica Neue", "Arial", system-ui, sans-serif; color: var(--ink-900); -webkit-font-smoothing: antialiased; }
+  .board { width: 1600px; padding: 56px 64px; background: #FFF; margin: 0 auto; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; padding-bottom: 24px; border-bottom: 1px solid var(--ink-200); }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .brand img { height: 48px; }
+  .brand-meta { display: flex; flex-direction: column; gap: 2px; }
+  .brand-meta b { font-size: 16px; letter-spacing: -0.01em; }
+  .brand-meta span { font-size: 12px; color: var(--ink-500); }
+  .meta-right { font-size: 12px; color: var(--ink-500); text-align: right; line-height: 1.5; }
+  h1 { font-size: 56px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; margin: 28px 0 8px; color: var(--ink-900); }
+  .lede { font-size: 18px; color: var(--ink-500); max-width: 720px; line-height: 1.5; margin-bottom: 40px; }
+
+  section { margin-top: 56px; }
+  .sec-head { display:flex; align-items:baseline; justify-content:space-between; margin-bottom: 24px; }
+  .sec-head h2 { font-size: 28px; font-weight: 800; letter-spacing: -0.01em; margin: 0; }
+  .sec-head .num { font-size: 12px; font-weight: 700; color: var(--red-500); letter-spacing: 0.16em; text-transform: uppercase; }
+
+  /* Buttons */
+  .btn-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 12px; }
+  .btn-row .col { display: flex; flex-direction: column; gap: 12px; align-items: stretch; }
+  .btn-row .col small { font-size: 11px; color: var(--ink-500); letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 14px 20px;
+    border-radius: 12px; font-size: 15px; font-weight: 700; letter-spacing: -0.005em;
+    border: 1px solid transparent; cursor: pointer;
+    font-family: inherit;
+  }
+  .btn-primary    { background: var(--red-500); color: #FFF; }
+  .btn-primary:hover, .btn-primary:focus { background: var(--red-600); outline: none; }
+  .btn-primary:active { background: var(--red-700); }
+  .btn-primary[disabled] { background: var(--red-200); color: #FFFFFF; cursor: not-allowed; }
+  .btn-secondary  { background: var(--ink-900); color: #FFF; }
+  .btn-secondary:hover { background: var(--ink-700); }
+  .btn-outline    { background: transparent; color: var(--ink-900); border-color: var(--ink-300); }
+  .btn-outline:hover { background: var(--ink-50); border-color: var(--ink-900); }
+  .btn-ghost      { background: transparent; color: var(--ink-900); padding-left: 12px; padding-right: 12px; }
+  .btn-ghost:hover { background: var(--ink-100); }
+  .btn-danger     { background: var(--danger); color: #FFF; }
+  .btn-success    { background: var(--success); color: #FFF; }
+  .btn-lg         { padding: 16px 24px; font-size: 16px; border-radius: 14px; }
+  .btn-sm         { padding: 8px 14px; font-size: 13px; border-radius: 8px; }
+  .btn-block      { width: 100%; }
+
+  /* Inputs */
+  .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .field { display: flex; flex-direction: column; gap: 8px; }
+  .field label { font-size: 13px; font-weight: 700; color: var(--ink-700); }
+  .field .hint { font-size: 12px; color: var(--ink-500); }
+  .field .err  { font-size: 12px; color: var(--danger); font-weight: 700; }
+  .input {
+    height: 52px;
+    background: #FFF;
+    border: 1px solid var(--ink-300);
+    border-radius: 12px;
+    padding: 0 16px;
+    font-family: inherit;
+    font-size: 16px;
+    color: var(--ink-900);
+    width: 100%;
+  }
+  .input::placeholder { color: var(--ink-400); }
+  .input:focus { outline: none; border-color: var(--ink-900); box-shadow: 0 0 0 4px rgba(14,17,22,.08); }
+  .input.err { border-color: var(--danger); box-shadow: 0 0 0 4px rgba(220,38,38,.10); }
+  .input.dsb { background: var(--ink-50); color: var(--ink-400); }
+  .search { display:flex; align-items:center; gap:10px; padding:0 16px; height:64px; border:1px solid var(--ink-300); border-radius: 14px; background:#FFF; }
+  .search input { border:none; outline:none; flex:1; font-size:18px; font-family:inherit; background:transparent; }
+  .search svg { color: var(--ink-500); }
+  .chip-fcfa { margin-left: 12px; height: 52px; border-radius: 12px; padding: 0 14px; display: inline-flex; align-items: center; background: var(--ink-50); border: 1px solid var(--ink-200); font-weight: 700; font-size: 14px; color: var(--ink-700); }
+
+  /* Badges */
+  .badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .bd-red    { background: var(--red-50); color: var(--red-700); }
+  .bd-green  { background: #DCFCE7; color: #166534; }
+  .bd-amber  { background: #FEF3C7; color: #92400E; }
+  .bd-ink    { background: var(--ink-900); color: #FFF; }
+  .bd-outline{ background: #FFF; color: var(--ink-700); border: 1px solid var(--ink-300); }
+  .bd-dot::before { content:""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; display:inline-block; }
+
+  /* Cards */
+  .cards-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .card { border: 1px solid var(--ink-200); border-radius: 16px; padding: 24px; background: #FFF; }
+  .card-hover { transition: box-shadow .2s, transform .2s; box-shadow: 0 1px 2px rgba(14,17,22,.06); }
+  .card-hover:hover { box-shadow: 0 12px 32px rgba(14,17,22,.10); transform: translateY(-2px); }
+  .card .ico { width: 48px; height: 48px; border-radius: 12px; background: var(--red-50); color: var(--red-500); display:flex; align-items:center; justify-content:center; font-weight:800; font-size: 22px; }
+  .card h3 { font-size: 20px; font-weight: 700; letter-spacing: -0.005em; margin: 16px 0 8px; }
+  .card p  { font-size: 14px; color: var(--ink-500); line-height: 1.5; margin: 0; }
+  .card .meta { display:flex; align-items:center; justify-content:space-between; margin-top: 20px; }
+  .card .meta .price { font-size: 24px; font-weight: 800; letter-spacing: -0.01em; }
+  .card .meta .price small { font-size: 13px; font-weight: 700; color: var(--ink-500); margin-left: 4px; }
+  .card-tag { font-size: 11px; font-weight: 700; color: var(--red-500); letter-spacing: 0.12em; text-transform: uppercase; }
+
+  /* Quote / price */
+  .quote { background: var(--ink-900); color: #FFF; border-radius: 16px; padding: 28px; display: grid; grid-template-columns: 1.6fr 1fr; gap: 24px; }
+  .quote h4 { font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-300); margin: 0 0 12px; }
+  .quote .total { font-size: 44px; font-weight: 800; letter-spacing: -0.02em; }
+  .quote .total small { font-size: 16px; color: var(--ink-300); margin-left: 8px; }
+  .quote ul { list-style:none; padding:0; margin:0; font-size: 14px; color: var(--ink-100); }
+  .quote ul li { display:flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.08); }
+  .quote ul li b { color: #FFF; font-variant-numeric: tabular-nums; }
+  .quote .badge-row { display: flex; gap: 8px; margin-top: 16px; }
+
+  /* Table */
+  table.data { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.data thead th {
+    text-align: left; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-500); font-weight: 700;
+    padding: 12px 16px; border-bottom: 1px solid var(--ink-200); background: var(--ink-50);
+  }
+  table.data tbody td {
+    padding: 16px;
+    border-bottom: 1px solid var(--ink-200);
+    font-variant-numeric: tabular-nums;
+  }
+  table.data tbody tr:hover { background: var(--ink-50); }
+  table.data td.right { text-align: right; font-weight: 700; }
+  table.data tfoot td { padding: 16px; font-weight: 800; border-top: 1px solid var(--ink-900); }
+
+  /* Hero */
+  .hero { background: var(--ink-900); color: #FFF; border-radius: 16px; padding: 48px; display: grid; grid-template-columns: 1.4fr 1fr; gap: 32px; align-items:center; }
+  .hero h2 { font-size: 36px; font-weight: 800; letter-spacing: -0.015em; line-height: 1.1; margin: 0 0 16px; }
+  .hero p  { color: var(--ink-300); font-size: 16px; line-height: 1.5; margin: 0 0 24px; }
+  .hero .search { background: #FFF; color: var(--ink-900); border: none; }
+  .hero .cta { display: flex; gap: 12px; }
+
+  /* Misc */
+  .ctas-flex { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .legend { display:flex; gap: 12px; flex-wrap: wrap; }
+  .kbd { display: inline-block; padding: 2px 6px; background: var(--ink-100); border-radius: 4px; font-size: 11px; font-family: ui-monospace, "SF Mono", Menlo, monospace; color: var(--ink-700); }
+
+  .grid3 { display:grid; grid-template-columns: repeat(3,1fr); gap: 24px; }
+</style>
+</head>
+<body>
+<div class="board">
+
+  <div class="topbar">
+    <div class="brand">
+      <img src="https://www.genspark.ai/api/files/s/Dv3hphDl" alt="Liguita" />
+      <div class="brand-meta">
+        <b>Liguita Design System</b>
+        <span>Components · v1.0</span>
+      </div>
+    </div>
+    <div class="meta-right">Hero · Buttons · Inputs · Badges · Cards · Table<br>21 septembre 2026</div>
+  </div>
+
+  <h1>Composants.</h1>
+  <p class="lede">Tous les éléments interactifs du SaaS Liguita. Style Uber appliqué : mono‑accent rouge, géométrie neutre, rayon modéré (8–16 px), élévation subtile. Mobile‑first : les touch targets font au minimum 48 px de hauteur.</p>
+
+  <!-- Hero -->
+  <section>
+    <div class="sec-head"><h2>Hero — page d'accueil</h2><div class="num">06 — Hero</div></div>
+    <div class="hero">
+      <div>
+        <h2>J'ai trouvé. Tu as perdu.<br>On se retrouve.</h2>
+        <p>Recherchez parmi les objets retrouvés à N'Djamena — chaque jour, des particuliers et des entreprises publient ce qu'ils ont trouvé.</p>
+        <div class="search" style="margin-bottom:16px;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input placeholder="Carte d'identité, téléphone, clés…" />
+        </div>
+        <div class="cta">
+          <button class="btn btn-primary btn-lg">🔎 Rechercher un objet</button>
+          <button class="btn btn-outline btn-lg" style="color:#FFF;border-color:rgba(255,255,255,.3);">J'ai perdu un objet</button>
+          <button class="btn btn-ghost btn-lg" style="color:#FFF;">J'ai trouvé un objet</button>
+        </div>
+      </div>
+      <div style="text-align:center; color: var(--ink-400);">
+        <div style="font-size:120px; line-height:1;">📍</div>
+        <div style="color: var(--ink-300); font-size: 14px; margin-top: 12px;">Écran centré mobile — 390 × 844 px</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Buttons -->
+  <section>
+    <div class="sec-head"><h2>Boutons</h2><div class="num">07 — Buttons</div></div>
+    <div class="btn-row">
+      <div class="col"><small>Primary</small>
+        <button class="btn btn-primary">Rechercher</button>
+        <button class="btn btn-primary">Hover · #C70D17</button>
+        <button class="btn btn-primary">Active · #A30A12</button>
+        <button class="btn btn-primary" disabled>Disabled</button>
+      </div>
+      <div class="col"><small>Secondary / Outline</small>
+        <button class="btn btn-secondary">Confirmer la restitution</button>
+        <button class="btn btn-outline">Voir la correspondance</button>
+        <button class="btn btn-ghost">Annuler</button>
+        <button class="btn btn-outline" disabled style="opacity:.5;cursor:not-allowed;">Désactivé</button>
+      </div>
+      <div class="col"><small>Semantic</small>
+        <button class="btn btn-success">Restitution confirmée</button>
+        <button class="btn btn-danger">Signaler un abus</button>
+        <button class="btn btn-primary btn-lg">CTA principal — large</button>
+        <button class="btn btn-primary btn-sm">Petite action</button>
+      </div>
+      <div class="col"><small>Block · mobile</small>
+        <button class="btn btn-primary btn-lg btn-block">🔎 Rechercher</button>
+        <button class="btn btn-outline btn-lg btn-block">J'ai perdu un objet</button>
+        <button class="btn btn-outline btn-lg btn-block">J'ai trouvé un objet</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Inputs -->
+  <section>
+    <div class="sec-head"><h2>Champs de saisie</h2><div class="num">08 — Inputs</div></div>
+    <div class="input-grid">
+      <div class="field">
+        <label>Téléphone</label>
+        <input class="input" placeholder="+235 6X XX XX XX" value="+235 66 12 34 56" />
+        <span class="hint">Un code OTP vous sera envoyé.</span>
+      </div>
+      <div class="field">
+        <label>Objet perdu</label>
+        <input class="input" placeholder="Carte d'identité, téléphone, clés…" />
+      </div>
+      <div class="field">
+        <label>Valeur déclarée (FCFA)</label>
+        <div style="display:flex; align-items:center;">
+          <input class="input" placeholder="0" value="704 000" />
+          <span class="chip-fcfa">FCFA</span>
+        </div>
+        <span class="hint">Au‑delà de 1 000 000 FCFA, l'objet passe en classe C5.</span>
+      </div>
+      <div class="field">
+        <label>Champ en erreur</label>
+        <input class="input err" value="abc" />
+        <span class="err">Saisissez un numéro valide.</span>
+      </div>
+      <div class="field">
+        <label>Recherche principale</label>
+        <div class="search">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input placeholder="Recherchez dans tout N'Djamena…" />
+        </div>
+      </div>
+      <div class="field">
+        <label>Champ désactivé</label>
+        <input class="input dsb" value="Lecture seule" disabled />
+      </div>
+    </div>
+  </section>
+
+  <!-- Badges -->
+  <section>
+    <div class="sec-head"><h2>Badges &amp; statuts</h2><div class="num">09 — Badges</div></div>
+    <div class="legend">
+      <span class="badge bd-red bd-dot">Perdu · C1</span>
+      <span class="badge bd-green bd-dot">Restitué</span>
+      <span class="badge bd-amber bd-dot">En attente</span>
+      <span class="badge bd-ink">Match 92 %</span>
+      <span class="badge bd-outline">Classe C3</span>
+      <span class="badge bd-red">Urgent · +50 %</span>
+      <span class="badge bd-green">Samaritain</span>
+      <span class="badge bd-outline">🏢 Business</span>
+    </div>
+  </section>
+
+  <!-- Cards -->
+  <section>
+    <div class="sec-head"><h2>Cartes — objets &amp; résultats</h2><div class="num">10 — Cards</div></div>
+    <div class="cards-grid">
+      <div class="card card-hover">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+          <div class="ico">🪪</div>
+          <span class="card-tag">Classe C1</span>
+        </div>
+        <h3>Carte d'identité</h3>
+        <p>Trouvée à N'Djamena · Moursal · 21 septembre 2026</p>
+        <div class="meta">
+          <span class="badge bd-amber bd-dot">Correspondance 87 %</span>
+          <span class="price">300 <small>FCFA</small></span>
+        </div>
+      </div>
+      <div class="card card-hover">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+          <div class="ico">📱</div>
+          <span class="card-tag">Classe C3</span>
+        </div>
+        <h3>Téléphone (Tecno Pop 8)</h3>
+        <p>Trouvé à N'Djamena · Farcha · 19 septembre 2026</p>
+        <div class="meta">
+          <span class="badge bd-red bd-dot">Match 94 %</span>
+          <span class="price">1 200 <small>FCFA</small></span>
+        </div>
+      </div>
+      <div class="card card-hover">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+          <div class="ico">💎</div>
+          <span class="card-tag">Classe C4</span>
+        </div>
+        <h3>Bague en or</h3>
+        <p>Trouvée à N'Djamena · Centre · 17 septembre 2026</p>
+        <div class="meta">
+          <span class="badge bd-green bd-dot">Restitué</span>
+          <span class="price">3 000 <small>FCFA</small></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quote block -->
+  <section>
+    <div class="sec-head"><h2>Devis de mise en relation</h2><div class="num">11 — Price Quote</div></div>
+    <div class="quote">
+      <div>
+        <h4>Devis #LG-Q-00091</h4>
+        <div class="total">1 200<small>FCFA</small></div>
+        <ul>
+          <li><span>Classe C3 — Électronique</span><b>1 200 FCFA</b></li>
+          <li><span>Traitement urgent</span><b>+600 FCFA</b></li>
+          <li><span>Conciergerie documents</span><b>—</b></li>
+        </ul>
+        <div class="badge-row">
+          <span class="badge bd-red bd-dot">À payer maintenant</span>
+          <span class="badge bd-outline" style="background:transparent;border-color:rgba(255,255,255,.25);color: var(--ink-300);">Dont 400 FCFA réservés au trouveur</span>
+        </div>
+      </div>
+      <div style="display:flex; flex-direction:column; justify-content:flex-end; gap:12px;">
+        <button class="btn btn-primary btn-lg">Payer 1 800 FCFA</button>
+        <button class="btn btn-outline btn-lg" style="color:#FFF;border-color:rgba(255,255,255,.3);">Voir le détail</button>
+        <div style="font-size: 12px; color: var(--ink-300);">Airtel Money · Moov Money · Cash Liguita</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Table -->
+  <section>
+    <div class="sec-head"><h2>Tableau — grille tarifaire (extrait)</h2><div class="num">12 — Data</div></div>
+    <table class="data">
+      <thead>
+        <tr>
+          <th>Type d'objet</th><th>Classe</th>
+          <th>Valeur indicative</th>
+          <th style="text-align:right;">Frais</th>
+          <th style="text-align:right;">Trouveur</th>
+          <th style="text-align:right;">Liguita</th>
+          <th>Statut</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Carte d'identité, passeport</td><td><span class="badge bd-outline">C1</span></td>
+          <td>5 000 – 60 000</td>
+          <td class="right">300</td><td class="right">100</td><td class="right">200</td>
+          <td><span class="badge bd-red bd-dot">En vigueur</span></td>
+        </tr>
+        <tr>
+          <td>Téléphone entrée / milieu de gamme</td><td><span class="badge bd-outline">C3</span></td>
+          <td>60 000 – 160 000</td>
+          <td class="right">1 200</td><td class="right">400</td><td class="right">800</td>
+          <td><span class="badge bd-green bd-dot">Calibré</span></td>
+        </tr>
+        <tr>
+          <td>Sac / article de marque</td><td><span class="badge bd-outline">C4</span></td>
+          <td>150 000 – 1 000 000</td>
+          <td class="right">3 000</td><td class="right">900</td><td class="right">2 100</td>
+          <td><span class="badge bd-amber bd-dot">À surveiller</span></td>
+        </tr>
+        <tr>
+          <td>Lot d'entreprise (&gt; 1 M FCFA)</td><td><span class="badge bd-outline">C5</span></td>
+          <td>&gt; 1 000 000</td>
+          <td class="right">1 %*</td><td class="right">30 %</td><td class="right">70 %</td>
+          <td><span class="badge bd-red bd-dot">Nouveau</span></td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr><td colspan="3">Total · 4 lignes</td><td class="right">—</td><td class="right">—</td><td class="right">—</td><td></td></tr>
+      </tfoot>
+    </table>
+    <p style="font-size:12px; color: var(--ink-500); margin-top:12px;">* C5 : 1 % de la valeur déclarée (plancher 5 000 FCFA, plafond 25 000 FCFA).</p>
+  </section>
+
+</div>
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495" integrity="sha512-iIg7k2xntmwu6/uSb5tpc/hySgZc4eoL31yB29W6tJFo2akwjPWcEqnCEdJvGexCL0KEQwVYv5BlowfhVz26hg==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","spa":2}' crossorigin="anonymous"></script>
+</body>
+</html>
