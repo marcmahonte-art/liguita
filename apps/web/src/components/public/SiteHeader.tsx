@@ -9,6 +9,7 @@ import { buttonClasses, cn } from '@liguita/ui';
 
 import { PUBLIC_NAV } from '../../lib/navigation';
 import { Logo } from '../brand/Logo';
+import { UserMenu } from './UserMenu';
 
 /**
  * En-tête du site public.
@@ -61,12 +62,7 @@ export function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <Link
-            href="/login"
-            className={buttonClasses({ variant: 'primary', size: 'sm', className: 'hidden sm:inline-flex' })}
-          >
-            Connexion
-          </Link>
+          <UserMenu />
 
           <button
             type="button"
@@ -100,7 +96,7 @@ export function SiteHeader() {
               </li>
             ))}
             <li className="mt-2 sm:hidden">
-              <Link href="/login" className={buttonClasses({ variant: 'primary', block: true })}>
+              <Link href="/connexion" className={buttonClasses({ variant: 'primary', block: true })}>
                 Connexion
               </Link>
             </li>
