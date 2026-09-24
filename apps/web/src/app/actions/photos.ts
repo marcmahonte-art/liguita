@@ -81,6 +81,26 @@ async function verifyItemOwnership(
   return !error && Boolean(data);
 }
 
+async function verifyItemAccess(
+  supabase: SupabaseClient,
+  itemKind: 'LOST' | 'FOUND',
+  itemId: string,
+  userId: string,
+): Promise<boolean> {
+  if (await verifyItemOwnership(supabase, itemKind, itemId, userId)) {
+    return true;
+  }
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('app_role')
+    .eq('id', userId)
+    .in('app_role', ['ADMIN', 'MODERATOR'])
+    .maybeSingle();
+
+  return !error && Boolean(data);
+}
+
 export async function uploadItemPhoto(formData: FormData): Promise<UploadItemPhotoResult> {
   const supabase = await createClient();
   const {
@@ -277,7 +297,7 @@ export async function listItemPhotos(input: ListItemPhotosInput): Promise<ListIt
     return { success: false, error: 'L’identifiant de l’objet est invalide.' };
   }
 
-  if (!(await verifyItemOwnership(supabase, itemKind, itemId, user.id))) {
+  if (!(await verifyItemAccess(supabase, itemKind, itemId, user.id))) {
     return { success: false, error: 'Vous ne pouvez pas consulter les photos de cet objet.' };
   }
 

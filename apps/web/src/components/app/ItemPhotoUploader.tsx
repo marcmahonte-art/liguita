@@ -1,12 +1,13 @@
 'use client';
 
 import { ImagePlus, LoaderCircle, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { buttonClasses } from '@liguita/ui';
 
 import {
   deleteItemPhoto,
+  listItemPhotos,
   uploadItemPhoto,
   type ItemPhoto,
 } from '../../app/actions/photos';
@@ -21,7 +22,24 @@ interface ItemPhotoUploaderProps {
 export function ItemPhotoUploader({ itemId, itemKind }: ItemPhotoUploaderProps) {
   const [photos, setPhotos] = useState<ItemPhoto[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    void listItemPhotos({ itemId, itemKind }).then((result) => {
+      if (!isMounted) return;
+      if (result.success) {
+        setPhotos(result.photos ?? []);
+      } else {
+        setError(result.error ?? 'Les photos existantes n’ont pas pu être chargées.');
+      }
+      setIsLoading(false);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [itemId, itemKind]);
 
   async function handleFiles(event: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
@@ -85,7 +103,7 @@ export function ItemPhotoUploader({ itemId, itemKind }: ItemPhotoUploaderProps) 
           accept="image/jpeg,image/png,image/webp,image/avif"
           multiple
           onChange={handleFiles}
-          disabled={isUploading || photos.length >= 4}
+          disabled={isLoading || isUploading || photos.length >= 4}
           className="sr-only"
         />
         <span className="inline-flex items-center justify-center gap-2">
