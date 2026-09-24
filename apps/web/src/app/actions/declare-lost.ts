@@ -93,6 +93,7 @@ export async function declareLostItem(formData: FormData): Promise<DeclareLostRe
   }
 
   revalidatePath('/declarer/perdu');
+  revalidatePath('/app/objets');
   revalidatePath('/app/correspondances');
   return { success: true, id: data.id };
 }

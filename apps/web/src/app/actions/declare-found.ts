@@ -88,6 +88,7 @@ export async function declareFoundItem(formData: FormData): Promise<DeclareFound
   }
 
   revalidatePath('/declarer/trouve');
+  revalidatePath('/app/objets');
   revalidatePath('/app/correspondances');
   return { success: true, id: data.id };
 }
