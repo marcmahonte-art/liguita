@@ -1,6 +1,6 @@
 # LIGUITA — Spécifications UI/UX du dashboard
 
-Mise à jour : 24 septembre 2026  
+Mise à jour : 24 septembre 2026
 Surface concernée : espace connecté `/app`
 
 ## 1. Objectif
