@@ -38,6 +38,7 @@ export interface VerificationState {
   readonly locked: boolean;
   readonly questions: VerificationQuestionView[];
   readonly categoryLabel: string;
+  readonly objectTitle: string;
   /** Vrai si l'utilisateur est le trouveur (peut renseigner les secrets). */
   readonly isFinder: boolean;
   /** Vrai si le trouveur a déjà déposé des réponses attendues. */
@@ -90,12 +91,12 @@ async function loadCategoryCode(
   const [lost, found] = await Promise.all([
     reader
       .from('lost_items')
-      .select('id, user_id, category_code')
+      .select('id, user_id, title, category_code')
       .eq('id', match.lost_item_id)
       .maybeSingle(),
     reader
       .from('found_items')
-      .select('id, finder_id, category_code')
+      .select('id, finder_id, title, category_code')
       .eq('id', match.found_item_id)
       .maybeSingle(),
   ]);
@@ -152,12 +153,12 @@ export async function getVerificationState(matchId: string): Promise<{
 
   const { data: lost } = await reader
     .from('lost_items')
-    .select('user_id')
+    .select('user_id, title')
     .eq('id', match.lost_item_id)
     .maybeSingle();
   const { data: found } = await reader
     .from('found_items')
-    .select('finder_id')
+    .select('finder_id, title')
     .eq('id', match.found_item_id)
     .maybeSingle();
 
@@ -192,9 +193,10 @@ export async function getVerificationState(matchId: string): Promise<{
       attemptCount,
       attemptsRemaining: Math.max(0, VERIFICATION_MAX_ATTEMPTS - attemptCount),
       locked,
-      questions: toView(questions),
-      categoryLabel: rootLabel,
-      isFinder,
+       questions: toView(questions),
+       categoryLabel: rootLabel,
+       objectTitle: lost?.title ?? found?.title ?? 'Objet',
+       isFinder,
       hasSecrets: Boolean(secrets?.answers && Object.keys(secrets.answers).length > 0),
       canSubmit: Boolean(isOwner) && !locked && status !== 'APPROVED',
       outcome:

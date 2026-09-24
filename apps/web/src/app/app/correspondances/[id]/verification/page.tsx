@@ -189,22 +189,32 @@ export default function VerificationPage() {
           Vérification de propriété
         </h1>
         <p className="mt-1 text-body text-ink-600">
-          Pour vous mettre en relation avec la personne qui a trouvé cet objet ({state.categoryLabel}),
-          répondez à quelques questions. Ces réponses ne sont pas publiques.
+          Pour vous mettre en relation avec la personne qui a trouvé cet objet ({state.objectTitle}),
+          répondez à quelques questions sur sa catégorie « {state.categoryLabel} ». Ces réponses ne
+          sont pas publiques.
         </p>
       </div>
 
       {result ? (
         <Alert tone={result.tone} title={result.message}>
           {result.outcome === 'APPROVED' ? (
-            <Link href={`/app/correspondances/${matchId}`} className={buttonClasses({ variant: 'primary', size: 'sm' })}>
-              Voir la correspondance
-            </Link>
+              <Link
+                href={`/app/correspondances/${matchId}/paiement`}
+                className={buttonClasses({ variant: 'primary', size: 'sm' })}
+              >
+                Continuer vers le paiement
+              </Link>
           ) : null}
         </Alert>
       ) : null}
 
       {error && !result ? <Alert tone="danger" title={error} /> : null}
+      {state.questions.length === 0 && !state.isFinder ? (
+        <Alert
+          tone="warning"
+          title="Questions indisponibles pour cette catégorie"
+        />
+      ) : null}
 
       {state.locked ? (
         <Alert tone="danger" title="Correspondance verrouillée">
@@ -278,7 +288,7 @@ export default function VerificationPage() {
       ) : null}
 
       {/* Formulaire propriétaire */}
-      {!state.isFinder && !state.locked && state.status !== 'APPROVED' && state.status !== 'UNDER_REVIEW' ? (
+      {!state.isFinder && !state.locked && state.status !== 'APPROVED' && state.status !== 'UNDER_REVIEW' && state.questions.length > 0 ? (
         <section className="space-y-4 rounded-2xl border border-ink-200 bg-white p-5 sm:p-6">
           <div className="flex items-start gap-2 text-body-sm text-ink-600">
             <Lock size={16} className="mt-0.5 shrink-0" aria-hidden />
@@ -322,7 +332,7 @@ export default function VerificationPage() {
       {state.status === 'APPROVED' ? (
         <button
           type="button"
-          onClick={() => router.push(`/app/correspondances/${matchId}`)}
+           onClick={() => router.push(`/app/correspondances/${matchId}/paiement`)}
           className={buttonClasses({ variant: 'primary' })}
         >
           Continuer vers le devis →
