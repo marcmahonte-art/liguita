@@ -7,8 +7,8 @@ import { Logo } from '../../components/brand/Logo';
 /**
  * Coquille des pages d'authentification.
  *
- * Volontairement dépouillée : ni header marketing, ni footer. L'utilisateur est dans
- * un tunnel court (téléphone → OTP) et chaque lien sortant serait une source de distraction.
+ * Volontairement dépouillée : ni header marketing, ni footer. L’utilisateur est dans
+ * un tunnel court d’authentification email et mot de passe.
  */
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (

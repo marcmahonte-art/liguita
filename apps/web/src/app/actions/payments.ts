@@ -313,10 +313,11 @@ export async function initiatePayment(
   if (!quote) return { ok: false, error: 'Devis introuvable.' };
   const { data: profile } = await supabase
     .from('profiles')
-    .select('phone')
+    .select('phone, airtel_number')
     .eq('id', user.id)
     .maybeSingle();
-  if (!profile?.phone) return { ok: false, error: 'Numéro de téléphone manquant.' };
+  const payerPhone = profile?.airtel_number ?? profile?.phone;
+  if (!payerPhone) return { ok: false, error: 'Numéro Airtel Money manquant.' };
 
   let airtelTransactionId: string | null = null;
   if (providerCode === 'AIRTEL') {
@@ -339,7 +340,7 @@ export async function initiatePayment(
     const result = await provider.initiate({
       amount: Number(quote.total_amount),
       currency: quote.currency,
-      payerPhone: profile.phone,
+      payerPhone,
       reference: quoteId,
       idempotencyKey: airtelTransactionId ?? idempotencyKey,
       description: 'Frais de mise en relation Liguita',

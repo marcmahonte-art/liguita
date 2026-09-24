@@ -13,7 +13,9 @@ export default function ProfilPage() {
     );
   }
 
-  const name = user.display_name || user.full_name || `+${user.phone}`;
+  const name = user.display_name || user.full_name || 'Membre Liguita';
+  const whatsapp = user.whatsapp_number || 'À compléter';
+  const airtel = user.airtel_number || 'À compléter';
 
   return (
     <div className="space-y-6">
@@ -26,10 +28,12 @@ export default function ProfilPage() {
           <Avatar name={name} src={user.avatar_url} size="lg" />
           <div>
             <p className="font-display text-body-lg font-bold text-ink-950">{name}</p>
-            <p className="text-body-sm text-ink-600">+{user.phone}</p>
+            <p className="text-body-sm text-ink-600">{user.email ?? 'Email non renseigné'}</p>
             <p className="text-caption text-ink-500">
-              {user.phone_verified ? 'Numéro vérifié' : 'Numéro non vérifié'} ·{' '}
-              {user.country_code}
+              WhatsApp : {whatsapp} · Airtel Money : {airtel}
+            </p>
+            <p className="text-caption text-ink-500">
+              {user.country_code} · Les coordonnées restent privées
             </p>
           </div>
         </div>

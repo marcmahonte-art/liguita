@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowRight, Smartphone } from 'lucide-react';
+import { ArrowRight, LockKeyhole, Mail } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
@@ -9,98 +9,80 @@ import { buttonClasses } from '@liguita/ui';
 
 import { useAuth } from '../../../lib/auth/auth-context';
 
-/** Nombre de chiffres attendus pour un numéro tchadien après +235. */
-const PHONE_LENGTH = 8;
-
 function ConnexionForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signInWithPhone, isLoading: authLoading } = useAuth();
-
-  const [phone, setPhone] = useState('');
+  const { signInWithPassword, isLoading: authLoading } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const redirect = searchParams.get('redirect') ?? '/';
-  const digits = phone.replace(/\D/g, '');
-  const isValid = digits.length === PHONE_LENGTH;
+  const isValid = /^\S+@\S+\.\S+$/.test(email) && password.length >= 8;
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (!isValid || isSubmitting) return;
-
     setError(null);
     setIsSubmitting(true);
-
-    const { error: signInError } = await signInWithPhone(digits);
-
+    const result = await signInWithPassword(email, password);
     setIsSubmitting(false);
-
-    if (signInError) {
-      setError(signInError);
+    if (result.error) {
+      setError(result.error);
       return;
     }
-
-    const params = new URLSearchParams({ phone: digits });
-    if (redirect && redirect.startsWith('/')) params.set('redirect', redirect);
-    router.push(`/otp?${params.toString()}`);
+    router.push(redirect.startsWith('/') ? redirect : '/app');
   }
 
   return (
     <div className="rounded-3xl border border-ink-200 bg-white p-6 shadow-card sm:p-8">
       <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 font-display text-caption font-bold text-brand-700">
-        <Smartphone size={14} />
-        Connexion
+        <LockKeyhole size={14} />
+        Connexion sécurisée
       </span>
-
-      <h1 className="mt-3 font-display text-2xl font-extrabold text-ink-950">
-        Recevez un code par SMS
-      </h1>
+      <h1 className="mt-3 font-display text-2xl font-extrabold text-ink-950">Ravi de vous revoir</h1>
       <p className="mt-2 text-body text-ink-600">
-        Entrez votre numéro tchadien. Nous vous envoyons un code à 6 chiffres pour vérifier
-        que c’est bien vous.
+        Connectez-vous avec votre adresse email et votre mot de passe.
       </p>
-
       <form onSubmit={handleSubmit} className="mt-6 space-y-5">
         <div>
-          <label htmlFor="phone" className="block text-body-sm font-bold text-ink-800 mb-1.5">
-            Numéro de téléphone <span className="text-brand-500">*</span>
+          <label htmlFor="email" className="mb-1.5 block text-body-sm font-bold text-ink-800">
+            Adresse email
           </label>
-          <div className="flex items-center rounded-xl border border-ink-200 bg-white focus-within:border-brand-500">
-            <span
-              aria-hidden="true"
-              className="border-r border-ink-200 bg-ink-50 px-3.5 py-3 font-display text-body font-bold text-ink-700"
-            >
-              +235
-            </span>
+          <div className="relative">
+            <Mail size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" aria-hidden />
             <input
-              id="phone"
-              type="tel"
-              inputMode="numeric"
-              autoComplete="tel-national"
-              pattern="[0-9 ]*"
-              maxLength={11}
-              value={phone}
-              onChange={(event) => setPhone(event.target.value.replace(/[^\d ]/g, ''))}
-              placeholder="66 12 34 56"
-              aria-invalid={error ? true : undefined}
-              className="w-full bg-transparent px-3.5 py-3 text-body text-ink-900 placeholder:text-ink-400 focus:outline-none"
+              id="email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="vous@exemple.com"
+              className="w-full rounded-xl border border-ink-200 bg-white py-3 pl-10 pr-3 text-body text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
               required
             />
           </div>
-          <p className="mt-1.5 text-2xs text-ink-500">
-            {digits.length > 0 && digits.length !== PHONE_LENGTH
-              ? `${digits.length}/${PHONE_LENGTH} chiffres`
-              : '8 chiffres exactement, sans le préfixe +235.'}
-          </p>
         </div>
-
-        {error && (
-          <p role="alert" className="text-caption font-bold text-danger-500">
-            {error}
-          </p>
-        )}
-
+        <div>
+          <label htmlFor="password" className="mb-1.5 block text-body-sm font-bold text-ink-800">
+            Mot de passe
+          </label>
+          <div className="relative">
+            <LockKeyhole size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" aria-hidden />
+            <input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="8 caractères minimum"
+              className="w-full rounded-xl border border-ink-200 bg-white py-3 pl-10 pr-3 text-body text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+              minLength={8}
+              required
+            />
+          </div>
+        </div>
+        {error ? <p role="alert" className="text-caption font-bold text-danger-500">{error}</p> : null}
         <button
           type="submit"
           disabled={!isValid || isSubmitting || authLoading}
@@ -108,18 +90,17 @@ function ConnexionForm() {
             variant: 'primary',
             block: true,
             size: 'lg',
-            className: !isValid || isSubmitting ? 'opacity-50 cursor-not-allowed' : '',
+            className: !isValid || isSubmitting ? 'cursor-not-allowed opacity-50' : '',
           })}
         >
-          <span>{isSubmitting ? 'Envoi en cours…' : 'Recevoir le code'}</span>
+          <span>{isSubmitting ? 'Connexion…' : 'Se connecter'}</span>
           <ArrowRight size={18} />
         </button>
       </form>
-
       <p className="mt-6 text-center text-caption text-ink-600">
-        Premier usage sur Liguita ?{' '}
+        Pas encore de compte ?{' '}
         <Link href={`/inscription?redirect=${encodeURIComponent(redirect)}`} className="font-bold text-brand-700 hover:underline">
-          Créez votre compte
+          Créer un compte
         </Link>
       </p>
     </div>

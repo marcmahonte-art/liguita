@@ -19,8 +19,14 @@ import { createClient } from '../supabase/client';
  */
 export interface AuthProfile {
   id: string;
+  email: string | null;
+  email_verified: boolean;
   phone: string;
   phone_verified: boolean;
+  whatsapp_number: string | null;
+  whatsapp_verified: boolean;
+  airtel_number: string | null;
+  airtel_verified: boolean;
   full_name: string | null;
   display_name: string | null;
   avatar_url: string | null;
@@ -41,19 +47,21 @@ interface AuthContextValue {
   user: AuthProfile | null;
   session: Session | null;
   isLoading: boolean;
-  signInWithPhone: (phone: string) => Promise<{ error: string | null }>;
-  verifyOtp: (phone: string, token: string) => Promise<{ error: string | null }>;
+  signInWithPassword: (
+    email: string,
+    password: string,
+  ) => Promise<{ error: string | null }>;
+  signUpWithPassword: (input: {
+    email: string;
+    password: string;
+    fullName: string;
+    whatsappNumber: string;
+    airtelNumber: string;
+  }) => Promise<{ error: string | null; requiresConfirmation: boolean }>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
-
-/** Normalise une saisie tchadienne en format E.164 `+235XXXXXXXX`. */
-function toE164(phone: string): string {
-  const digits = phone.replace(/\D/g, '');
-  if (digits.startsWith('235')) return `+${digits}`;
-  return `+235${digits}`;
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const supabase = useMemo(() => createClient(), []);
@@ -104,31 +112,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [supabase, loadProfile]);
 
-  const signInWithPhone = useCallback(
-    async (phone: string) => {
-      const { error } = await supabase.auth.signInWithOtp({
-        phone: toE164(phone),
-        options: { channel: 'sms' },
+  const signInWithPassword = useCallback(
+    async (email: string, password: string) => {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
       });
       return { error: error?.message ?? null };
     },
     [supabase],
   );
 
-  const verifyOtp = useCallback(
-    async (phone: string, token: string) => {
-      const { error } = await supabase.auth.verifyOtp({
-        phone: toE164(phone),
-        token,
-        type: 'sms',
-      });
-      if (!error) {
-        const {
-          data: { user: authUser },
-        } = await supabase.auth.getUser();
-        if (authUser) await loadProfile(authUser.id);
+  const signUpWithPassword = useCallback(
+    async (input: {
+      email: string;
+      password: string;
+      fullName: string;
+      whatsappNumber: string;
+      airtelNumber: string;
+    }) => {
+      const whatsappDigits = input.whatsappNumber.replace(/\D/g, '');
+      const airtelDigits = input.airtelNumber.replace(/\D/g, '');
+      if (
+        input.fullName.trim().length < 2 ||
+        input.password.length < 8 ||
+        whatsappDigits.length < 8 ||
+        airtelDigits.length < 8
+      ) {
+        return { error: 'Nom, mot de passe et deux numéros valides sont requis.', requiresConfirmation: false };
       }
-      return { error: error?.message ?? null };
+      const { data, error } = await supabase.auth.signUp({
+        email: input.email.trim().toLowerCase(),
+        password: input.password,
+        options: {
+          data: {
+            full_name: input.fullName.trim(),
+            whatsapp_number: input.whatsappNumber.trim(),
+            airtel_number: input.airtelNumber.trim(),
+          },
+        },
+      });
+      if (error) return { error: error.message, requiresConfirmation: false };
+      if (!data.session && data.user) {
+        return { error: null, requiresConfirmation: true };
+      }
+      if (data.user) await loadProfile(data.user.id);
+      return { error: null, requiresConfirmation: false };
     },
     [supabase, loadProfile],
   );
@@ -140,8 +169,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [supabase]);
 
   const value = useMemo(
-    () => ({ user, session, isLoading, signInWithPhone, verifyOtp, signOut }),
-    [user, session, isLoading, signInWithPhone, verifyOtp, signOut],
+    () => ({ user, session, isLoading, signInWithPassword, signUpWithPassword, signOut }),
+    [user, session, isLoading, signInWithPassword, signUpWithPassword, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
