@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertTriangle, Check, X } from 'lucide-react';
+import { AlertTriangle, Check, CircleCheck, CircleX, X } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useState, useTransition } from 'react';
 
@@ -163,9 +163,17 @@ export default function ModerationPage() {
                             <dd className="mt-0.5 text-body-sm text-ink-900">
                               {a.answer}
                               {a.isCorrect === true ? (
-                                <span className="ml-2 text-success-700">✓</span>
+                                /* L'icône ne doit jamais porter seule l'information : le
+                                   libellé est rendu aux lecteurs d'écran via `sr-only`. */
+                                <span className="ml-2 inline-flex items-center gap-1 align-middle text-success-700">
+                                  <CircleCheck size={14} aria-hidden />
+                                  <span className="sr-only">Réponse correcte</span>
+                                </span>
                               ) : a.isCorrect === false ? (
-                                <span className="ml-2 text-danger-600">✗</span>
+                                <span className="ml-2 inline-flex items-center gap-1 align-middle text-danger-700">
+                                  <CircleX size={14} aria-hidden />
+                                  <span className="sr-only">Réponse incorrecte</span>
+                                </span>
                               ) : null}
                             </dd>
                           </div>

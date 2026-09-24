@@ -1,15 +1,8 @@
 ﻿import Link from 'next/link';
 
 import { formatShortDate } from '../../../lib/format';
+import { TONES, transactionMeta } from '../../../lib/icons';
 import type { Transaction } from '../../../types';
-
-const KIND_EMOJI: Record<string, string> = {
-  FINDER_REWARD: '🎁',
-  CONNECTION_FEE: '🤝',
-  TOP_UP: '💳',
-  PAYOUT: '📤',
-  COMMUNITY_BONUS: '🌟',
-};
 
 function formatXaf(amount: number): string {
   const abs = Math.abs(amount);
@@ -21,6 +14,19 @@ interface RecentTransactionsProps {
   transactions: readonly Transaction[];
 }
 
+/**
+ * Transactions récentes.
+ *
+ * ⚠️ **Deux informations distinctes, portées séparément.**
+ *
+ *  · L'ICÔNE et son fond disent la NATURE de l'opération : une récompense, des frais,
+ *    un rechargement. Ce sont des choses très différentes qui ne doivent pas se
+ *    confondre d'un coup d'œil.
+ *
+ *  · Le SIGNE du montant (`+` / `−`) dit le sens comptable. Il est écrit en toutes
+ *    lettres et doublé d'une couleur — le vert pour un crédit, le rouge pour un débit —
+ *    mais un relevé doit rester lisible en niveaux de gris ou pour un daltonien.
+ */
 export function RecentTransactions({ transactions }: RecentTransactionsProps) {
   return (
     <div className="rounded-2xl border border-ink-200 bg-white p-5 shadow-xs">
@@ -40,22 +46,26 @@ export function RecentTransactions({ transactions }: RecentTransactionsProps) {
         <ul className="mt-4 flex flex-col divide-y divide-ink-100">
           {transactions.map((tx) => {
             const isCredit = tx.amountXaf >= 0;
+            const meta = transactionMeta(tx.kind);
+            const Icon = meta.icon;
+
             return (
               <li key={tx.id} className="flex items-center gap-3 py-3">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-ink-50 text-lg">
-                  {KIND_EMOJI[tx.kind] ?? '💰'}
+                <span
+                  className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${TONES[meta.tone]}`}
+                  aria-hidden
+                >
+                  <Icon size={18} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="font-display text-body font-bold text-ink-950 truncate">
+                  <p className="truncate font-display text-body font-bold text-ink-950">
                     {tx.label}
                   </p>
-                  <p className="text-2xs text-ink-400">
-                    {formatShortDate(tx.occurredAt)}
-                  </p>
+                  <p className="text-2xs text-ink-500">{formatShortDate(tx.occurredAt)}</p>
                 </div>
                 <span
-                  className={`shrink-0 font-display text-body font-extrabold ${
-                    isCredit ? 'text-emerald-600' : 'text-red-600'
+                  className={`shrink-0 font-display text-body font-extrabold tabular ${
+                    isCredit ? 'text-success-700' : 'text-danger-700'
                   }`}
                 >
                   {formatXaf(tx.amountXaf)}

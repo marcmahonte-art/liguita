@@ -63,18 +63,25 @@ export function AppSidebar() {
         </ul>
       </nav>
 
-      <div className="border-t border-ink-100 p-3 space-y-3">
+      <div className="space-y-3 border-t border-ink-100 p-3">
         <Link
           href="/declarer/perdu"
           className={buttonClasses({ variant: 'primary', block: true, size: 'sm' })}
         >
           Déclarer une perte
         </Link>
-        {/* Illustration décorative */}
-        <div className="flex flex-col items-center gap-1 pb-1 pt-2 opacity-60">
-          <span className="text-4xl select-none" aria-hidden>🌳</span>
-          <p className="text-center text-2xs font-semibold text-ink-400 leading-tight">
-            Ensemble, retrouvons<br />ce qui compte.
+        {/* Bloc de signature.
+            ⚠️ L'emoji 🌳 a été remplacé par une composition typographique. Un arbre en
+            emoji n'a aucun rapport avec l'objet du service, et il est rendu différemment
+            selon le système — sur Android il ne ressemble pas à celui de Windows.
+            La spec §8 prévoit une illustration SVG dédiée ; en attendant, la signature
+            seule porte le propos, sans rien de trompeur. */}
+        <div className="px-1 pb-1 pt-2">
+          <div className="h-px w-10 bg-brand-500" aria-hidden />
+          <p className="mt-3 font-display text-caption font-bold leading-snug text-ink-500">
+            Ensemble, retrouvons
+            <br />
+            ce qui compte.
           </p>
         </div>
       </div>

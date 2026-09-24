@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Lock, Send } from 'lucide-react';
+import { ArrowLeft, Info, Lock, Send } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
@@ -232,9 +232,12 @@ export default function VerificationPage() {
             {state.attemptsRemaining} tentative{state.attemptsRemaining > 1 ? 's' : ''} restante
             {state.attemptsRemaining > 1 ? 's' : ''} sur 3
           </p>
-          <p className="mt-1">
-            ℹ️ Score ≥ 80 : approbation · 50–79 : revue manuelle · &lt; 50 : refus. Toute tentative
-            frauduleuse est signalée. 3 refus verrouillent la correspondance.
+          <p className="mt-1 flex gap-1.5">
+            <Info size={14} className="mt-0.5 shrink-0 text-info-700" aria-hidden />
+            <span>
+              Score ≥ 80 : approbation · 50–79 : revue manuelle · &lt; 50 : refus. Toute tentative
+              frauduleuse est signalée. 3 refus verrouillent la correspondance.
+            </span>
           </p>
         </div>
       ) : null}
