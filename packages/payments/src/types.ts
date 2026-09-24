@@ -15,6 +15,8 @@ export interface PaymentInitiationResult {
   providerReference: string;
   status: PaymentStatus;
   redirectUrl?: string;
+  airtelMoneyId?: string;
+  airtelStatus?: string;
 }
 
 export interface PaymentStatusResult {

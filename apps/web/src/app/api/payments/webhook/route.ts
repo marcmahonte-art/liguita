@@ -18,18 +18,27 @@ interface PaymentWebhookPayload {
 }
 
 function providerFor(code: string): PaymentProvider | null {
+  if (code === 'AIRTEL') {
+    const environment = process.env.AIRTEL_TD_ENV === 'prod' ? 'PROD' : 'UAT';
+    const endpoint =
+      process.env.AIRTEL_TD_BASE_URL ??
+      (environment === 'PROD'
+        ? process.env.AIRTEL_TD_PROD_BASE_URL
+        : process.env.AIRTEL_TD_UAT_BASE_URL) ??
+      process.env.AIRTEL_API_BASE_URL ??
+      '';
+    return new AirtelMoneyProvider({
+      secret: process.env.AIRTEL_TD_HMAC_PRIVATE_KEY ?? '',
+      endpoint,
+      clientId: process.env.AIRTEL_TD_CLIENT_ID ?? process.env.AIRTEL_CLIENT_ID ?? '',
+      clientSecret: process.env.AIRTEL_TD_CLIENT_SECRET ?? process.env.AIRTEL_CLIENT_SECRET ?? '',
+      merchantCode: process.env.AIRTEL_MERCHANT_CODE,
+    });
+  }
+
   const secret = process.env.PAYMENT_WEBHOOK_SECRET;
   if (!secret) return null;
   if (code === 'CASH') return new TestPaymentProvider(secret);
-  if (code === 'AIRTEL') {
-    return new AirtelMoneyProvider({
-      secret,
-      endpoint: process.env.AIRTEL_API_BASE_URL ?? '',
-      clientId: process.env.AIRTEL_CLIENT_ID ?? '',
-      clientSecret: process.env.AIRTEL_CLIENT_SECRET ?? '',
-      merchantCode: process.env.AIRTEL_MERCHANT_CODE ?? '',
-    });
-  }
   if (code === 'MOOV') {
     return new MoovMoneyProvider({
       secret,
