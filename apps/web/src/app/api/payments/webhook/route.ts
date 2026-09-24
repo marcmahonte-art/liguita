@@ -19,19 +19,24 @@ interface PaymentWebhookPayload {
 
 function providerFor(code: string): PaymentProvider | null {
   if (code === 'AIRTEL') {
-    const environment = process.env.AIRTEL_TD_ENV === 'prod' ? 'PROD' : 'UAT';
+    const isProduction = (process.env.LIGUITA_AIRTEL_ENV ?? process.env.AIRTEL_TD_ENV) === 'prod';
     const endpoint =
+      process.env.AIRTEL_BASE_URL ??
       process.env.AIRTEL_TD_BASE_URL ??
-      (environment === 'PROD'
-        ? process.env.AIRTEL_TD_PROD_BASE_URL
-        : process.env.AIRTEL_TD_UAT_BASE_URL) ??
+      (isProduction ? process.env.AIRTEL_TD_PROD_BASE_URL : process.env.AIRTEL_TD_UAT_BASE_URL) ??
       process.env.AIRTEL_API_BASE_URL ??
       '';
+    const clientId = isProduction
+      ? process.env.AIRTEL_TD_PROD_CLIENT_ID ?? process.env.AIRTEL_TD_CLIENT_ID
+      : process.env.AIRTEL_TD_UAT_CLIENT_ID ?? process.env.AIRTEL_TD_CLIENT_ID;
+    const clientSecret = isProduction
+      ? process.env.AIRTEL_TD_PROD_CLIENT_SECRET ?? process.env.AIRTEL_TD_CLIENT_SECRET
+      : process.env.AIRTEL_TD_UAT_CLIENT_SECRET ?? process.env.AIRTEL_TD_CLIENT_SECRET;
     return new AirtelMoneyProvider({
       secret: process.env.AIRTEL_TD_HMAC_PRIVATE_KEY ?? '',
       endpoint,
-      clientId: process.env.AIRTEL_TD_CLIENT_ID ?? process.env.AIRTEL_CLIENT_ID ?? '',
-      clientSecret: process.env.AIRTEL_TD_CLIENT_SECRET ?? process.env.AIRTEL_CLIENT_SECRET ?? '',
+      clientId: clientId ?? process.env.AIRTEL_CLIENT_ID ?? '',
+      clientSecret: clientSecret ?? process.env.AIRTEL_CLIENT_SECRET ?? '',
       merchantCode: process.env.AIRTEL_MERCHANT_CODE,
     });
   }
@@ -99,6 +104,9 @@ export async function POST(request: NextRequest) {
     matchedTransaction.currency !== payload.currency
   ) {
     return NextResponse.json({ error: 'Montant ou devise incohérent' }, { status: 422 });
+  }
+  if (matchedTransaction.status === 'PAID') {
+    return NextResponse.json({ ok: true, ignored: true, final: true });
   }
   if (payload.status !== 'PAID') {
     if (payload.status === 'FAILED' || payload.status === 'CANCELLED') {

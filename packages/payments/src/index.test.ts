@@ -162,6 +162,19 @@ describe('AirtelMoneyProvider', () => {
     }
   });
 
+  it('laisse une erreur HTTP en état interne pending', async () => {
+    const fetchMock = vi.fn((url: string | URL) => {
+      if (String(url).endsWith('/auth/oauth2/token')) {
+        return Promise.resolve(airtelResponse({ access_token: 'token-1', expires_in: 3600 }));
+      }
+      return Promise.resolve(airtelResponse({}, 500));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const result = await airtelProvider().checkStatus('tx-1');
+    expect(result.status).toBe('PENDING');
+    expect(result.failureReason).toContain('500');
+  });
+
   it('vérifie le hash HMAC-SHA256 Base64 du callback', () => {
     const body = JSON.stringify({ transaction: { id: 'tx-1', status: 'TS' } });
     const hash = createHmac('sha256', 'callback-secret').update(body).digest('base64');

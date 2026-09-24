@@ -234,19 +234,24 @@ export async function getPaymentState(matchId: string): Promise<{
 
 function providerFor(code: 'CASH' | 'AIRTEL' | 'MOOV'): PaymentProvider {
   if (code === 'AIRTEL') {
-    const environment = process.env.AIRTEL_TD_ENV === 'prod' ? 'PROD' : 'UAT';
+    const isProduction = (process.env.LIGUITA_AIRTEL_ENV ?? process.env.AIRTEL_TD_ENV) === 'prod';
     const endpoint =
+      process.env.AIRTEL_BASE_URL ??
       process.env.AIRTEL_TD_BASE_URL ??
-      (environment === 'PROD'
-        ? process.env.AIRTEL_TD_PROD_BASE_URL
-        : process.env.AIRTEL_TD_UAT_BASE_URL) ??
+      (isProduction ? process.env.AIRTEL_TD_PROD_BASE_URL : process.env.AIRTEL_TD_UAT_BASE_URL) ??
       process.env.AIRTEL_API_BASE_URL ??
       '';
+    const clientId = isProduction
+      ? process.env.AIRTEL_TD_PROD_CLIENT_ID ?? process.env.AIRTEL_TD_CLIENT_ID
+      : process.env.AIRTEL_TD_UAT_CLIENT_ID ?? process.env.AIRTEL_TD_CLIENT_ID;
+    const clientSecret = isProduction
+      ? process.env.AIRTEL_TD_PROD_CLIENT_SECRET ?? process.env.AIRTEL_TD_CLIENT_SECRET
+      : process.env.AIRTEL_TD_UAT_CLIENT_SECRET ?? process.env.AIRTEL_TD_CLIENT_SECRET;
     return new AirtelMoneyProvider({
       secret: process.env.AIRTEL_TD_HMAC_PRIVATE_KEY ?? '',
       endpoint,
-      clientId: process.env.AIRTEL_TD_CLIENT_ID ?? process.env.AIRTEL_CLIENT_ID ?? '',
-      clientSecret: process.env.AIRTEL_TD_CLIENT_SECRET ?? process.env.AIRTEL_CLIENT_SECRET ?? '',
+      clientId: clientId ?? process.env.AIRTEL_CLIENT_ID ?? '',
+      clientSecret: clientSecret ?? process.env.AIRTEL_CLIENT_SECRET ?? '',
       merchantCode: process.env.AIRTEL_MERCHANT_CODE,
     });
   }
@@ -272,6 +277,9 @@ export async function initiatePayment(
   if (process.env.PAYMENT_CASH_ENABLED !== 'true' && providerCode === 'CASH') {
     return { ok: false, error: 'Le paiement espèces n’est pas activé.' };
   }
+  const service = tryCreateServiceClient();
+  if (!service) return { ok: false, error: 'Service indisponible.' };
+
   const { data: transactionId, error } = await supabase.rpc('create_payment_transaction', {
     p_quote_id: quoteId,
     p_idempotency_key: idempotencyKey,
@@ -279,6 +287,23 @@ export async function initiatePayment(
   });
   if (error || !transactionId)
     return { ok: false, error: error?.message ?? 'Initialisation impossible.' };
+
+  const { data: existingTransaction } = await service
+    .from('transactions')
+    .select('provider_reference, provider_request_started_at, status')
+    .eq('id', transactionId)
+    .maybeSingle();
+  if (
+    existingTransaction?.provider_reference ||
+    existingTransaction?.provider_request_started_at ||
+    existingTransaction?.status === 'PAID'
+  ) {
+    return {
+      ok: true,
+      transactionId,
+      status: existingTransaction.status === 'PAID' ? 'PAID' : 'PENDING',
+    };
+  }
 
   const { data: quote } = await supabase
     .from('price_quotes')
@@ -293,6 +318,22 @@ export async function initiatePayment(
     .maybeSingle();
   if (!profile?.phone) return { ok: false, error: 'Numéro de téléphone manquant.' };
 
+  let airtelTransactionId: string | null = null;
+  if (providerCode === 'AIRTEL') {
+    const { data: claimed } = await service.rpc('claim_payment_submission', {
+      p_transaction_id: transactionId,
+    });
+    if (!claimed) {
+      return { ok: true, transactionId, status: 'PENDING' };
+    }
+    airtelTransactionId = `LIG-COL-${transactionId}`;
+    await service
+      .from('transactions')
+      .update({ provider_reference: airtelTransactionId })
+      .eq('id', transactionId);
+    await service.rpc('schedule_payment_enquiry', { p_transaction_id: transactionId });
+  }
+
   try {
     const provider = providerFor(providerCode);
     const result = await provider.initiate({
@@ -300,28 +341,42 @@ export async function initiatePayment(
       currency: quote.currency,
       payerPhone: profile.phone,
       reference: quoteId,
-      idempotencyKey,
+      idempotencyKey: airtelTransactionId ?? idempotencyKey,
       description: 'Frais de mise en relation Liguita',
     });
-    const service = tryCreateServiceClient();
-    if (!service) return { ok: false, error: 'Service indisponible.' };
     await service
       .from('transactions')
       .update({
         provider_reference: result.providerReference,
         ...(result.airtelMoneyId ? { airtel_money_id: result.airtelMoneyId } : {}),
         ...(result.airtelStatus ? { airtel_status: result.airtelStatus } : {}),
-        status: result.status === 'PAID' ? 'INITIATED' : 'PENDING',
+        status:
+          result.status === 'PAID'
+            ? 'INITIATED'
+            : result.status === 'FAILED'
+              ? 'FAILED'
+              : result.status === 'CANCELLED'
+                ? 'CANCELLED'
+                : 'PENDING',
       })
-      .eq('id', transactionId);
+      .eq('id', transactionId)
+      .in('status', ['INITIATED', 'PENDING', 'FAILED', 'CANCELLED']);
+    if (result.status === 'FAILED' || result.status === 'CANCELLED') {
+      await service
+        .from('payment_enquiry_jobs')
+        .update({ status: 'COMPLETED', completed_at: new Date().toISOString() })
+        .eq('transaction_id', transactionId);
+    }
     if (result.status !== 'PAID') {
       return { ok: true, transactionId, status: result.status, redirectUrl: result.redirectUrl };
     }
     const paid = await service.rpc('mark_payment_paid', {
       p_transaction_id: transactionId,
       p_provider_reference: result.providerReference,
-      p_payload: { provider: providerCode, status: 'PAID' },
-      p_event_id: `initiation_${idempotencyKey}`,
+      p_payload: result.airtelStatus
+        ? { provider: providerCode, transaction: { status: result.airtelStatus } }
+        : { provider: providerCode, status: 'PAID' },
+      p_event_id: `initiation_${airtelTransactionId ?? idempotencyKey}`,
     });
     if (paid.error) return { ok: false, transactionId, error: paid.error.message };
     return {
@@ -331,6 +386,21 @@ export async function initiatePayment(
       conversationId: (paid.data as { conversation_id?: string }).conversation_id,
     };
   } catch (error) {
+    if (providerCode === 'AIRTEL') {
+      await service
+        .from('transactions')
+        .update({
+          failure_reason: 'Résultat Airtel inconnu. Vérification en cours.',
+          provider_payload: { state: 'unknown' },
+        })
+        .eq('id', transactionId);
+      return {
+        ok: true,
+        transactionId,
+        status: 'PENDING',
+        error: 'Vérification en cours. Ne relancez pas le paiement.',
+      };
+    }
     return {
       ok: false,
       transactionId,

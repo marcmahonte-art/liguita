@@ -21,6 +21,8 @@ export interface PaymentInitiationResult {
 
 export interface PaymentStatusResult {
   status: PaymentStatus;
+  airtelStatus?: string;
+  airtelResponseCode?: string;
   failureReason?: string;
   paidAt?: Date;
 }

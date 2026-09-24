@@ -17,19 +17,24 @@ async function authorize(request: NextRequest): Promise<boolean> {
 
 function providerFor(code: string): PaymentProvider | null {
   if (code === 'AIRTEL') {
-    const environment = process.env.AIRTEL_TD_ENV === 'prod' ? 'PROD' : 'UAT';
+    const isProduction = (process.env.LIGUITA_AIRTEL_ENV ?? process.env.AIRTEL_TD_ENV) === 'prod';
     const endpoint =
+      process.env.AIRTEL_BASE_URL ??
       process.env.AIRTEL_TD_BASE_URL ??
-      (environment === 'PROD'
-        ? process.env.AIRTEL_TD_PROD_BASE_URL
-        : process.env.AIRTEL_TD_UAT_BASE_URL) ??
+      (isProduction ? process.env.AIRTEL_TD_PROD_BASE_URL : process.env.AIRTEL_TD_UAT_BASE_URL) ??
       process.env.AIRTEL_API_BASE_URL ??
       '';
+    const clientId = isProduction
+      ? process.env.AIRTEL_TD_PROD_CLIENT_ID ?? process.env.AIRTEL_TD_CLIENT_ID
+      : process.env.AIRTEL_TD_UAT_CLIENT_ID ?? process.env.AIRTEL_TD_CLIENT_ID;
+    const clientSecret = isProduction
+      ? process.env.AIRTEL_TD_PROD_CLIENT_SECRET ?? process.env.AIRTEL_TD_CLIENT_SECRET
+      : process.env.AIRTEL_TD_UAT_CLIENT_SECRET ?? process.env.AIRTEL_TD_CLIENT_SECRET;
     return new AirtelMoneyProvider({
       secret: process.env.AIRTEL_TD_HMAC_PRIVATE_KEY ?? '',
       endpoint,
-      clientId: process.env.AIRTEL_TD_CLIENT_ID ?? process.env.AIRTEL_CLIENT_ID ?? '',
-      clientSecret: process.env.AIRTEL_TD_CLIENT_SECRET ?? process.env.AIRTEL_CLIENT_SECRET ?? '',
+      clientId: clientId ?? process.env.AIRTEL_CLIENT_ID ?? '',
+      clientSecret: clientSecret ?? process.env.AIRTEL_CLIENT_SECRET ?? '',
       merchantCode: process.env.AIRTEL_MERCHANT_CODE,
     });
   }
@@ -54,6 +59,113 @@ export async function GET(request: NextRequest) {
   const service = tryCreateServiceClient();
   if (!service)
     return NextResponse.json({ ok: false, error: 'Service indisponible' }, { status: 500 });
+
+  const { data: jobs } = await service
+    .from('payment_enquiry_jobs')
+    .select('id, transaction_id, attempt')
+    .eq('status', 'PENDING')
+    .lte('next_attempt_at', new Date().toISOString())
+    .order('next_attempt_at', { ascending: true })
+    .limit(50);
+
+  let jobsProcessed = 0;
+  let jobsUnknown = 0;
+  for (const job of jobs ?? []) {
+    const { data: claimedJob } = await service
+      .from('payment_enquiry_jobs')
+      .update({ status: 'PROCESSING', started_at: new Date().toISOString() })
+      .eq('id', job.id)
+      .eq('status', 'PENDING')
+      .select('id')
+      .maybeSingle();
+    if (!claimedJob) continue;
+    jobsProcessed += 1;
+
+    const { data: transaction } = await service
+      .from('transactions')
+      .select('id, provider, provider_reference')
+      .eq('id', job.transaction_id)
+      .maybeSingle();
+    if (!transaction?.provider_reference) {
+      await service
+        .from('payment_enquiry_jobs')
+        .update({ status: 'UNKNOWN', last_error: 'Référence opérateur absente', completed_at: new Date().toISOString() })
+        .eq('id', job.id);
+      jobsUnknown += 1;
+      continue;
+    }
+
+    const provider = providerFor(transaction.provider);
+    if (!provider) {
+      await service
+        .from('payment_enquiry_jobs')
+        .update({ status: 'UNKNOWN', last_error: 'Provider non configuré', completed_at: new Date().toISOString() })
+        .eq('id', job.id);
+      jobsUnknown += 1;
+      continue;
+    }
+    try {
+      const result = await provider.checkStatus(transaction.provider_reference);
+      if (result.status === 'PAID') {
+        await service.rpc('mark_payment_paid', {
+          p_transaction_id: transaction.id,
+          p_provider_reference: transaction.provider_reference,
+          p_payload: {
+            source: 'payment-enquiry',
+            transaction: result.airtelStatus ? { status: result.airtelStatus } : undefined,
+          },
+          p_event_id: `enquiry_${job.id}_${job.attempt + 1}`,
+        });
+        continue;
+      }
+      if (result.status === 'FAILED' || result.status === 'CANCELLED') {
+        await service
+          .from('transactions')
+          .update({
+            status: result.status,
+            failure_reason: result.failureReason ?? 'Rapprochement opérateur',
+            ...(transaction.provider === 'AIRTEL' && result.airtelStatus
+              ? { airtel_status: result.airtelStatus }
+              : {}),
+          })
+          .eq('id', transaction.id);
+        await service
+          .from('payment_enquiry_jobs')
+          .update({ status: 'COMPLETED', completed_at: new Date().toISOString() })
+          .eq('id', job.id);
+        continue;
+      }
+
+      if (job.attempt >= 14) {
+        await service
+          .from('payment_enquiry_jobs')
+          .update({ status: 'UNKNOWN', last_error: 'Délai Airtel terminé', completed_at: new Date().toISOString() })
+          .eq('id', job.id);
+        jobsUnknown += 1;
+      } else {
+        await service
+          .from('payment_enquiry_jobs')
+          .update({
+            attempt: job.attempt + 1,
+            status: 'PENDING',
+            next_attempt_at: new Date(Date.now() + 60_000).toISOString(),
+            last_error: result.failureReason ?? null,
+          })
+          .eq('id', job.id);
+      }
+    } catch {
+      await service
+        .from('payment_enquiry_jobs')
+        .update({
+          attempt: job.attempt + 1,
+          status: job.attempt >= 14 ? 'UNKNOWN' : 'PENDING',
+          next_attempt_at: new Date(Date.now() + 60_000).toISOString(),
+          last_error: 'Erreur de communication Airtel',
+        })
+        .eq('id', job.id);
+      if (job.attempt >= 14) jobsUnknown += 1;
+    }
+  }
 
   const { data: transactions } = await service
     .from('transactions')
@@ -101,6 +213,8 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     ok: true,
     processed: transactions?.length ?? 0,
+    jobsProcessed,
+    jobsUnknown,
     paid,
     failed,
     at: new Date().toISOString(),

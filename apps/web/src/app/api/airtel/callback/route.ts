@@ -32,19 +32,17 @@ export async function POST(request: NextRequest) {
   }
 
   const secret = process.env.AIRTEL_TD_HMAC_PRIVATE_KEY;
-  if (process.env.NODE_ENV === 'production' && !secret) {
+  if (!secret) {
     return NextResponse.json({ error: 'Airtel callback non sécurisé' }, { status: 503 });
   }
-  if (secret) {
-    const provider = new AirtelMoneyProvider({
-      secret,
-      endpoint: 'https://openapi.airtel.td',
-      clientId: 'callback',
-      clientSecret: 'callback',
-    });
-    if (!provider.verifyWebhook(rawBody, Object.fromEntries(request.headers.entries()))) {
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
-    }
+  const provider = new AirtelMoneyProvider({
+    secret,
+    endpoint: 'https://openapi.airtel.td',
+    clientId: 'callback',
+    clientSecret: 'callback',
+  });
+  if (!provider.verifyWebhook(rawBody, Object.fromEntries(request.headers.entries()))) {
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
   }
 
   const status = callbackStatus(parsed);
@@ -79,36 +77,42 @@ export async function POST(request: NextRequest) {
       : null);
   if (!transaction) return NextResponse.json({ error: 'Transaction introuvable' }, { status: 404 });
 
+  const eventId = `airtel_${providerReference || airtelMoneyId}_${status}`;
+  const { data: recorded, error: recordError } = await service.rpc(
+    'record_airtel_payment_event',
+    {
+      p_transaction_id: transaction.id,
+      p_event_id: eventId,
+      p_airtel_status: status,
+      p_airtel_transaction_id: providerReference || null,
+      p_airtel_money_id: airtelMoneyId || null,
+      p_signature: request.headers.get('hash'),
+      p_payload: parsed,
+    },
+  );
+  if (recordError) return NextResponse.json({ error: recordError.message }, { status: 409 });
+  if (!recorded) return NextResponse.json({ ok: true, ignored: true, duplicate: true });
+
   if (status === 'TS') {
     const { data, error } = await service.rpc('mark_payment_paid', {
       p_transaction_id: transaction.id,
       p_provider_reference: providerReference || airtelMoneyId,
       p_payload: parsed,
-      p_event_id: `airtel_${providerReference || airtelMoneyId}_${status}`,
+      p_event_id: `airtel_paid_${providerReference || airtelMoneyId}`,
     });
     if (error) return NextResponse.json({ error: error.message }, { status: 409 });
-    await service
-      .from('transactions')
-      .update({
-        airtel_money_id: airtelMoneyId,
-        airtel_status: status,
-        airtel_response_code: status,
-        callback_received_at: new Date().toISOString(),
-      })
-      .eq('id', transaction.id);
     return NextResponse.json({ ok: true, result: data });
   }
 
-  await service
-    .from('transactions')
-    .update({
-      status: status === 'TF' ? 'FAILED' : status === 'TE' ? 'CANCELLED' : 'PENDING',
-      failure_reason: parsed.transaction?.message ?? `Airtel ${status}`,
-      airtel_money_id: airtelMoneyId,
-      airtel_status: status,
-      airtel_response_code: status,
-      callback_received_at: new Date().toISOString(),
-    })
-    .eq('id', transaction.id);
-  return NextResponse.json({ ok: true, ignored: true });
+  const { data, error } = await service.rpc('apply_airtel_status', {
+    p_transaction_id: transaction.id,
+    p_airtel_status: status,
+    p_airtel_transaction_id: providerReference || null,
+    p_airtel_money_id: airtelMoneyId || null,
+    p_airtel_response_code: status,
+    p_event_id: eventId,
+    p_payload: parsed,
+  });
+  if (error) return NextResponse.json({ error: error.message }, { status: 409 });
+  return NextResponse.json({ ok: true, result: data });
 }

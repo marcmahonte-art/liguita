@@ -122,14 +122,14 @@ export class AirtelMoneyProvider implements PaymentProvider {
     const response = await fetch(this.configuredUrl('/auth/oauth2/token'), {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'application/json',
         Accept: 'application/json',
       },
-      body: new URLSearchParams({
+      body: JSON.stringify({
         client_id: this.clientId,
         client_secret: this.clientSecret,
         grant_type: 'client_credentials',
-      }).toString(),
+      }),
     });
     if (!response.ok) {
       throw new Error(`Airtel Money a refusé l'authentification (${response.status}).`);
@@ -209,16 +209,25 @@ export class AirtelMoneyProvider implements PaymentProvider {
       this.configuredUrl(`/standard/v1/payments/${encodeURIComponent(providerReference)}`),
       { headers: await this.authenticatedHeaders() },
     );
-    if (!response.ok) return { status: 'FAILED', failureReason: `HTTP ${response.status}` };
+    if (!response.ok) {
+      return { status: 'PENDING', failureReason: `Airtel enquiry HTTP ${response.status}` };
+    }
     const body = (await response.json()) as {
       transaction?: {
         status?: string;
         message?: string;
       };
+      status?: {
+        response_code?: string;
+        message?: string;
+      };
     };
-    const failureReason = body.transaction?.message;
+    const rawStatus = body.transaction?.status;
+    const failureReason = body.transaction?.message ?? body.status?.message;
     return {
-      status: airtelStatus(body.transaction?.status),
+      status: airtelStatus(rawStatus),
+      ...(rawStatus ? { airtelStatus: rawStatus } : {}),
+      ...(body.status?.response_code ? { airtelResponseCode: body.status.response_code } : {}),
       ...(failureReason ? { failureReason } : {}),
     };
   }

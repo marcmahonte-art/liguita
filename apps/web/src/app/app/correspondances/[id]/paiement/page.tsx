@@ -11,6 +11,7 @@ import { PriceQuoteCard } from '@liguita/ui';
 
 import {
   createPriceQuote,
+  getPaymentState,
   initiatePayment,
   type PriceQuoteView,
 } from '../../../../actions/payments';
@@ -27,8 +28,13 @@ export default function PaymentPage() {
     DELIVERY: false,
   });
   const [communityBonus, setCommunityBonus] = useState('0');
-  const [provider, setProvider] = useState<'CASH' | 'AIRTEL' | 'MOOV'>('CASH');
+  const [provider, setProvider] = useState<'CASH' | 'AIRTEL' | 'MOOV'>('AIRTEL');
   const [error, setError] = useState<string | null>(null);
+  const [paymentState, setPaymentState] = useState<{
+    status: 'UNPAID' | 'PENDING' | 'PAID' | 'REFUNDED';
+    conversationId: string | null;
+    transactionId: string | null;
+  } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
   const idempotencyKey = useRef('');
@@ -47,6 +53,21 @@ export default function PaymentPage() {
     });
     return () => {
       cancelled = true;
+    };
+  }, [authLoading, matchId, user]);
+
+  useEffect(() => {
+    if (authLoading || !user || !matchId) return;
+    let cancelled = false;
+    const poll = async () => {
+      const result = await getPaymentState(matchId);
+      if (!cancelled) setPaymentState(result);
+    };
+    void poll();
+    const interval = window.setInterval(() => void poll(), 5_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
     };
   }, [authLoading, matchId, user]);
 
@@ -79,8 +100,20 @@ export default function PaymentPage() {
         setError(result.error ?? 'Paiement impossible.');
         return;
       }
-      if (result.conversationId) router.push(`/app/messages/${result.conversationId}`);
-      else setError('Paiement en attente de confirmation opérateur.');
+      if (result.conversationId) {
+        router.push(`/app/messages/${result.conversationId}`);
+        return;
+      }
+      if (result.status === 'PENDING') {
+        setPaymentState({
+          status: 'PENDING',
+          conversationId: result.conversationId ?? null,
+          transactionId: result.transactionId ?? null,
+        });
+        setError('Vérification en cours. Ne relancez pas le paiement.');
+        return;
+      }
+      setError('Paiement confirmé.');
     });
   }
 
@@ -92,6 +125,9 @@ export default function PaymentPage() {
       </div>
     );
   }
+
+  const paymentChecking = paymentState?.status === 'PENDING';
+  const paymentCompleted = paymentState?.status === 'PAID';
 
   return (
     <div className="space-y-6">
@@ -109,7 +145,12 @@ export default function PaymentPage() {
           Le devis est calculé côté serveur et reste valable 30 minutes.
         </p>
       </div>
-      {error ? <Alert tone="danger" title={error} /> : null}
+      {error ? (
+        <Alert
+          tone={paymentChecking || error.includes('Vérification') ? 'warning' : 'danger'}
+          title={error}
+        />
+      ) : null}
 
       {quote ? (
         <>
@@ -128,9 +169,9 @@ export default function PaymentPage() {
                   CONCIERGERIE: 'Conciergerie documents (+1 000 FCFA)',
                   DELIVERY: 'Livraison partenaire',
                 };
-                const disabled = option === 'DELIVERY';
-                return (
-                  <label
+                 const disabled = option === 'DELIVERY';
+                 return (
+                   <label
                     key={option}
                     className="flex min-h-12 items-center gap-3 text-body-sm text-ink-800"
                   >
@@ -184,10 +225,15 @@ export default function PaymentPage() {
             <button
               type="button"
               onClick={handlePay}
-              disabled={isPending}
+              disabled={isPending || paymentChecking || paymentCompleted}
               className={buttonClasses({ variant: 'primary', block: true })}
             >
-              <LockKeyhole size={16} /> Payer {formatMoney(quote.totalAmount)}
+              <LockKeyhole size={16} />
+              {paymentCompleted
+                ? 'Paiement confirmé'
+                : paymentChecking
+                  ? 'Vérification en cours'
+                  : `Payer ${formatMoney(quote.totalAmount)}`}
             </button>
             <p className="text-center text-2xs text-ink-500">
               Un double clic ne crée qu’une transaction.
