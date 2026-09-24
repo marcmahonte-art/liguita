@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, Menu, X } from 'lucide-react';
+import { Bell, Menu, Search, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -55,9 +55,29 @@ export function AppTopBar() {
           </Link>
         </div>
 
-        <p className="hidden font-display text-body-lg font-bold text-ink-900 lg:block">
-          Mon espace
-        </p>
+        {/* Barre de recherche globale (desktop uniquement) */}
+        <form
+          action="/rechercher"
+          method="get"
+          className="hidden flex-1 max-w-md lg:flex"
+          role="search"
+        >
+          <div className="relative w-full">
+            <Search
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none"
+              aria-hidden
+            />
+            <input
+              id="topbar-search"
+              type="search"
+              name="q"
+              placeholder="Rechercher un objet, une ville, un mot-clé…"
+              autoComplete="off"
+              className="h-10 w-full rounded-xl border border-ink-200 bg-ink-50 pl-9 pr-4 text-body text-ink-900 placeholder:text-ink-400 outline-none transition focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
+            />
+          </div>
+        </form>
 
         <div className="flex items-center gap-2">
           <Link

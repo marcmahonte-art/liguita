@@ -63,13 +63,20 @@ export function AppSidebar() {
         </ul>
       </nav>
 
-      <div className="border-t border-ink-100 p-3">
+      <div className="border-t border-ink-100 p-3 space-y-3">
         <Link
           href="/declarer/perdu"
           className={buttonClasses({ variant: 'primary', block: true, size: 'sm' })}
         >
           Déclarer une perte
         </Link>
+        {/* Illustration décorative */}
+        <div className="flex flex-col items-center gap-1 pb-1 pt-2 opacity-60">
+          <span className="text-4xl select-none" aria-hidden>🌳</span>
+          <p className="text-center text-2xs font-semibold text-ink-400 leading-tight">
+            Ensemble, retrouvons<br />ce qui compte.
+          </p>
+        </div>
       </div>
     </aside>
   );

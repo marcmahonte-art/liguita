@@ -10,14 +10,15 @@
  */
 
 import {
+  ArrowLeftRight,
   Bell,
-  Bookmark,
   Building2,
   HelpCircle,
   Home,
   Info,
   LayoutDashboard,
   LifeBuoy,
+  Megaphone,
   MessageCircle,
   Package,
   Search,
@@ -55,12 +56,14 @@ export const PUBLIC_NAV: readonly NavItem[] = [
 
 export const APP_NAV: readonly NavItem[] = [
   { href: '/app', label: 'Tableau de bord', icon: LayoutDashboard },
-  { href: '/app/correspondances', label: 'Correspondances', icon: Users },
-  { href: '/app/messages', label: 'Messages', icon: MessageCircle },
+  { href: '/rechercher', label: 'Rechercher un objet', icon: Search },
   { href: '/app/objets', label: 'Mes objets', icon: Package },
-  { href: '/app/avis', label: 'Mes avis de recherche', icon: Bookmark },
+  { href: '/app/annonces', label: 'Mes annonces', icon: Megaphone },
+  { href: '/app/portefeuille', label: 'Mon portefeuille', icon: Wallet },
+  { href: '/app/transactions', label: 'Mes transactions', icon: ArrowLeftRight },
   { href: '/app/notifications', label: 'Notifications', icon: Bell },
   { href: '/app/profil', label: 'Mon profil', icon: User },
+  { href: '/help', label: 'Aide & support', icon: LifeBuoy },
 ];
 
 /** Navigation du bas mobile — 5 entrées max. */
