@@ -223,3 +223,49 @@ describe('jetons — surfaces', () => {
     expect(contrastRatio(BORDER_INTERACTIVE, surface.page)).toBeLessThan(3);
   });
 });
+
+/**
+ * ⚠️ Ce bloc existe à cause d'un défaut réel : quatre classes (`text-2xs`, `text-body-sm`,
+ * `text-ink-950`, `shadow-xs`) étaient utilisées respectivement 30, 59, 6 et une dizaine
+ * de fois dans l'application — dont la totalité des widgets du tableau de bord — sans
+ * qu'aucune ne soit définie dans le preset.
+ *
+ * Tailwind n'émet pas d'avertissement pour une classe inconnue : il produit simplement
+ * aucun CSS. Le style ne s'appliquait donc pas, sans que rien ne le signale ni au build
+ * ni à l'exécution. Ces tests rendent l'oubli impossible.
+ */
+describe('jetons — classes autrefois fantômes', () => {
+  it('définit les tailles typographiques les plus utilisées de l’application', () => {
+    const sizes = extend.fontSize as Record<string, [string, unknown]>;
+    expect(sizes['2xs']).toBeDefined();
+    expect(sizes['body-sm']).toBeDefined();
+    // Elles doivent rester strictement plus petites que leurs voisines déclarées,
+    // sinon la hiérarchie visuelle s'inverse sans que personne ne le remarque.
+    expect(sizes['2xs']?.[0]).toBe('0.6875rem');
+    expect(sizes['body-sm']?.[0]).toContain('0.875rem');
+  });
+
+  it('définit ink-950 et le place au niveau de ink-900, jamais plus clair', () => {
+    // Un `ink-950` plus clair que `ink-900` casserait tous les titres du tableau de bord.
+    expect(ink[950]).toBeDefined();
+    expect(contrastRatio(ink[950], ink[0])).toBeGreaterThanOrEqual(
+      contrastRatio(ink[900], ink[0]),
+    );
+  });
+
+  it('définit shadow-xs et le garde plus discret que shadow-100', () => {
+    // `xs` est l'ombre des cartes au repos : elle doit rester la plus légère de la rampe.
+    const shadows = extend.boxShadow as Record<string, string>;
+    expect(shadows.xs).toBeDefined();
+    expect(shadows.xs).not.toBe(shadows['100']);
+  });
+
+  it('ne laisse aucune classe du preset référencer un jeton inexistant', () => {
+    // Garde-fou général : toute couleur `ink-N` présente dans le preset doit exister
+    // dans la rampe. C'est ce contrôle qui aurait attrapé `ink-950`.
+    const colors = extend.colors as Record<string, Record<string, unknown>>;
+    for (const step of Object.keys(colors.ink ?? {})) {
+      expect(ink).toHaveProperty(step);
+    }
+  });
+});

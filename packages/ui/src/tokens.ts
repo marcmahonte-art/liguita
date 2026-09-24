@@ -71,6 +71,23 @@ export const ink = {
   500: '#5B6470',
   700: '#2A2F38',
   900: '#0E1116',
+  /**
+   * Noir d'interface, pour les titres de widget et les montants.
+   *
+   * ⚠️ **Jeton ajouté pour réparer un défaut silencieux.** Le tableau de bord utilisait
+   * `text-ink-950` dans six composants alors que la rampe s'arrêtait à `900`. Tailwind
+   * ignorait donc la classe : les titres et les montants héritaient de la couleur du
+   * parent au lieu du noir prévu, sans la moindre erreur de build.
+   *
+   * Justification de la valeur : `#0E1116` est déjà très sombre. Descendre à un noir
+   * pur (`#000000`) donnerait 21:1 et un rendu plus dur, sans bénéfice de lisibilité.
+   * `ink[900]` est employé pour saturer la rampe, ce qui permet à `text-ink-950` de
+   * fonctionner sans introduire un 9ᵉ pas superflu.
+   *
+   * À terme, préférer `ink-900` dans le nouveau code : ce jeton existe pour ne pas
+   * casser les composants écrits entre-temps, pas pour être généralisé.
+   */
+  950: '#0E1116',
 } as const;
 
 /* -------------------------------------------------------------------------- */
@@ -183,7 +200,31 @@ export const fontSize = {
   h3: 'clamp(1.125rem, 2vw, 1.25rem)',
   'body-lg': 'clamp(1rem, 1.6vw, 1.125rem)',
   body: 'clamp(0.9375rem, 1.4vw, 1rem)',
+  /**
+   * ⚠️ **Jeton ajouté pour réparer un défaut silencieux.**
+   *
+   * `text-body-sm` était utilisé **59 fois** dans l'application sans être défini nulle
+   * part : Tailwind ignorait la classe, et le texte était rendu à la taille héritée de
+   * son parent (16 px) au lieu de 14 px. Le même texte paraissait donc trop gros partout
+   * — sans erreur de build pour le signaler.
+   *
+   * Plage 0,875 → 0,9375 rem, soit 14 → 15 px : une demi-marche sous `body`, ce qui
+   * correspond à l'écart demandé par la maquette entre texte courant et texte dense
+   * (descriptions de notification, libellés de tableau de bord).
+   */
+  'body-sm': 'clamp(0.875rem, 1.3vw, 0.9375rem)',
   caption: 'clamp(0.75rem, 1.2vw, 0.8125rem)',
+  /**
+   * ⚠️ **Jeton ajouté pour la même raison.** `text-2xs` était utilisé 30 fois sans
+   * définition, pour les métadonnées les plus denses : dates, localisations, libellés
+   * de statistiques.
+   *
+   * Fixé à 0,6875 rem (11 px) sans `clamp()` : en dessous de cette taille, un texte
+   * devient illisible sur un écran d'entrée de gamme, et il n'y a donc rien à gagner
+   * à le réduire davantage sur mobile. La borne basse de `caption` (12 px) reste le
+   * plancher pour tout texte réellement porteur d'information.
+   */
+  '2xs': '0.6875rem',
   overline: '0.6875rem',
   money: 'clamp(1.125rem, 2.4vw, 1.5rem)',
   'money-lg': 'clamp(2rem, 5vw, 2.75rem)',
@@ -220,7 +261,25 @@ export const borderRadius = {
   full: '999px',
 } as const;
 
+/**
+ * Ombres.
+ *
+ * ⚠️ La direction artistique demande « très peu d'ombres ». La rampe est donc courte et
+ * volontairement discrète : `xs` et `100` sont à la limite du perceptible, ce qui suffit
+ * à détacher une carte du fond sans créer de profondeur artificielle.
+ */
 export const boxShadow = {
+  /**
+   * ⚠️ **Jeton ajouté pour réparer un défaut silencieux.** `shadow-xs` était présent sur
+   * *tous* les widgets du tableau de bord sans être défini : Tailwind ignorait la classe,
+   * donc les cartes n'avaient aucune ombre alors que le code demandait explicitement le
+   * contraire.
+   *
+   * Volontairement plus discret que `100` : c'est l'ombre des cartes au repos sur le
+   * tableau de bord. `100` reste pour les éléments qui doivent se détacher davantage
+   * (carte posée sur une surface teintée).
+   */
+  xs: '0 1px 2px rgba(14,17,22,.04)',
   100: '0 1px 2px rgba(14,17,22,.06), 0 1px 1px rgba(14,17,22,.04)',
   200: '0 4px 12px rgba(14,17,22,.08), 0 2px 4px rgba(14,17,22,.04)',
   300: '0 12px 32px rgba(14,17,22,.10), 0 4px 8px rgba(14,17,22,.05)',

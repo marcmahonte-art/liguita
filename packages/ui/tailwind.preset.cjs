@@ -44,6 +44,7 @@ const liguitaPreset = {
           500: '#5B6470',
           700: '#2A2F38',
           900: '#0E1116',
+          950: '#0E1116',
         },
         surface: {
           page: '#F7F8FA',
@@ -83,7 +84,11 @@ const liguitaPreset = {
         ],
         'body-lg': ['clamp(1rem, 1.6vw, 1.125rem)', { lineHeight: '1.5' }],
         body: ['clamp(0.9375rem, 1.4vw, 1rem)', { lineHeight: '1.5' }],
+        /* Jeton ajouté : `text-body-sm` était utilisé 59 fois sans définition. */
+        'body-sm': ['clamp(0.875rem, 1.3vw, 0.9375rem)', { lineHeight: '1.45' }],
         caption: ['clamp(0.75rem, 1.2vw, 0.8125rem)', { lineHeight: '1.4' }],
+        /* Jeton ajouté : `text-2xs` était utilisé 30 fois sans définition. */
+        '2xs': ['0.6875rem', { lineHeight: '1.35' }],
         overline: ['0.6875rem', { lineHeight: '1.4', letterSpacing: '0.12em', fontWeight: '700' }],
         money: [
           'clamp(1.125rem, 2.4vw, 1.5rem)',
@@ -106,6 +111,8 @@ const liguitaPreset = {
       },
 
       boxShadow: {
+        /* Jeton ajouté : `shadow-xs` était utilisé sur tous les widgets sans définition. */
+        xs: '0 1px 2px rgba(14,17,22,.04)',
         100: '0 1px 2px rgba(14,17,22,.06), 0 1px 1px rgba(14,17,22,.04)',
         200: '0 4px 12px rgba(14,17,22,.08), 0 2px 4px rgba(14,17,22,.04)',
         300: '0 12px 32px rgba(14,17,22,.10), 0 4px 8px rgba(14,17,22,.05)',
