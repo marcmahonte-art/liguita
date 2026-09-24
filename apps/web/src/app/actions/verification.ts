@@ -4,7 +4,6 @@ import { revalidatePath } from 'next/cache';
 
 import {
   VERIFICATION_MAX_ATTEMPTS,
-  classifyVerification,
   findCategory,
   questionsFor,
   scoreVerification,
@@ -297,54 +296,52 @@ export async function submitVerificationAnswers(
   const hasSecrets = Object.keys(expected).length > 0;
 
   if (!hasSecrets) {
-    // Pas de secrets : revue manuelle (le trouveur / un modérateur notera).
     decision = 'UNDER_REVIEW';
     scorePercent = 0;
   } else {
     const outcome = scoreVerification(questions, answers, expected);
     scorePercent = Math.round(outcome.score * 100);
-    decision = classifyVerification(outcome.score);
+    decision = outcome.isSufficient
+      ? 'APPROVED'
+      : outcome.score >= 0.5
+        ? 'UNDER_REVIEW'
+        : 'REJECTED';
   }
-
-  // Seul un REFUS automatique (score < 50) consomme une tentative (§7.5).
-  // UNDER_REVIEW n'incrémente qu'après une décision de revue.
-  const attemptsUsed = decision === 'REJECTED' ? attemptCount + 1 : attemptCount;
 
   const claimStatus =
     decision === 'APPROVED' ? 'APPROVED' : decision === 'UNDER_REVIEW' ? 'UNDER_REVIEW' : 'REJECTED';
-
-  let claimId = existingClaim?.id;
-  if (!claimId) {
-    const { data: inserted, error: insertError } = await service
-      .from('claims')
-      .insert({
-        match_id: matchId,
-        claimant_id: user.id,
-        status: claimStatus,
-        score: scorePercent,
-        attempt_count: attemptsUsed,
-      })
-      .select('id')
-      .single();
-    if (insertError || !inserted) {
-      return { ok: false, error: insertError?.message ?? 'Enregistrement impossible.' };
-    }
-    claimId = inserted.id;
-  } else {
-    const { error: updateError } = await service
-      .from('claims')
-      .update({
-        status: claimStatus,
-        score: scorePercent,
-        attempt_count: attemptsUsed,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', claimId);
-    if (updateError) return { ok: false, error: updateError.message };
+  const { data: decisionRow, error: decisionError } = await service.rpc(
+    'apply_verification_decision',
+    {
+      p_match_id: matchId,
+      p_claimant_id: user.id,
+      p_status: claimStatus,
+      p_score: scorePercent,
+      p_increment_attempt: decision === 'REJECTED',
+    },
+  );
+  if (decisionError || !decisionRow?.[0]) {
+    return { ok: false, error: decisionError?.message ?? 'Enregistrement impossible.' };
   }
 
-  // Remplace les réponses de la tentative précédente (pas d'historique multi-tentatives
-  // exposé : une seule soumission active par claim).
+  const applied = decisionRow[0] as {
+    claim_id: string;
+    attempt_count: number;
+    locked: boolean;
+    attempt_incremented: boolean;
+  };
+  const claimId = applied.claim_id;
+  const attemptsUsed = applied.attempt_count;
+  if (applied.locked && !applied.attempt_incremented) {
+    return {
+      ok: false,
+      locked: true,
+      attemptCount: attemptsUsed,
+      attemptsRemaining: 0,
+      error: 'Correspondance verrouillée après 3 tentatives.',
+    };
+  }
+
   await service.from('verification_answers').delete().eq('claim_id', claimId);
 
   const { data: dbQuestions } = await service

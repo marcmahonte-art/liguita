@@ -81,6 +81,16 @@ describe('barème de vérification (§7.5)', () => {
     expect(outcome.isSufficient).toBe(true);
   });
 
+  it('ne suffit pas quand une question obligatoire attendue est absente', () => {
+    const outcome = scoreVerification(
+      QUESTIONS,
+      [{ questionId: 'q1', value: 'Cartes et billets' }],
+      { q1: 'cartes et billets', q2: 'autocollant bleu', q3: 'noir' },
+    );
+    expect(outcome.score).toBe(0.4);
+    expect(outcome.isSufficient).toBe(false);
+  });
+
   it('normalise casse et accents sans tolérer les fautes de frappe', () => {
     const outcome = scoreVerification(
       QUESTIONS,
