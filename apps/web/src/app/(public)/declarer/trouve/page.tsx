@@ -16,6 +16,7 @@ import { ACTIVE_CITIES, ITEM_TYPES, LEAF_CATEGORIES, NEIGHBORHOODS } from '@ligu
 import { buttonClasses, Combobox, Select } from '@liguita/ui';
 
 import { declareFoundItem } from '../../../actions/declare-found';
+import { ItemPhotoUploader } from '../../../../components/app/ItemPhotoUploader';
 import { useAuth } from '../../../../lib/auth/auth-context';
 import { useDraft } from '../../../../lib/hooks/use-draft';
 
@@ -169,11 +170,13 @@ export default function DeclareFoundItemPage() {
               ligne.
             </p>
 
-            <p className="mt-2 text-caption text-ink-500">
-              Référence : <code className="font-mono text-ink-800">{submittedId}</code>
-            </p>
+             <p className="mt-2 text-caption text-ink-500">
+               Référence : <code className="font-mono text-ink-800">{submittedId}</code>
+             </p>
 
-            <div className="mt-6 border border-emerald-200 bg-emerald-50/80 p-4 text-left rounded-2xl">
+             <ItemPhotoUploader itemId={submittedId} itemKind="FOUND" />
+
+             <div className="mt-6 border border-emerald-200 bg-emerald-50/80 p-4 text-left rounded-2xl">
               <div className="flex gap-3">
                 <Award size={22} className="mt-0.5 shrink-0 text-emerald-700" />
                 <div className="space-y-1 text-caption text-emerald-950">

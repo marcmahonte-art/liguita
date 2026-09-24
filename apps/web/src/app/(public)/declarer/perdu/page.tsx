@@ -18,6 +18,7 @@ import { ACTIVE_CITIES, ITEM_TYPES, LEAF_CATEGORIES, NEIGHBORHOODS } from '@ligu
 import { buttonClasses, Combobox, Select, cn } from '@liguita/ui';
 
 import { declareLostItem } from '../../../actions/declare-lost';
+import { ItemPhotoUploader } from '../../../../components/app/ItemPhotoUploader';
 import { useAuth } from '../../../../lib/auth/auth-context';
 import { useDraft } from '../../../../lib/hooks/use-draft';
 
@@ -173,11 +174,13 @@ export default function DeclareLostItemPage() {
               actif.
             </p>
 
-            <p className="mt-2 text-caption text-ink-500">
-              Référence : <code className="font-mono text-ink-800">{submittedId}</code>
-            </p>
+             <p className="mt-2 text-caption text-ink-500">
+               Référence : <code className="font-mono text-ink-800">{submittedId}</code>
+             </p>
 
-            <div className="mt-6 rounded-2xl border border-brand-100 bg-brand-50/70 p-4 text-left">
+             <ItemPhotoUploader itemId={submittedId} itemKind="LOST" />
+
+             <div className="mt-6 rounded-2xl border border-brand-100 bg-brand-50/70 p-4 text-left">
               <div className="flex gap-3">
                 <Info size={20} className="mt-0.5 shrink-0 text-brand-600" />
                 <div className="space-y-1 text-caption text-brand-900">
