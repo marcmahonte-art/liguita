@@ -78,10 +78,41 @@ La source de vérité est `packages/ui/src/tokens.ts`. Les composants ne doivent
 - `brand[600]` : `#C70D17`, survol et états actifs.
 - `brand[50]` : `#FDECEE`, fond rose léger.
 - `brand[700]` : `#A30A12`, texte rose foncé.
-- `BRAND_BRIGHT` : `#FF3330`, réservé aux aplats décoratifs et aux gradients sans texte blanc.
+- `BRAND_BRIGHT` : `#FF3330`, **décoratif uniquement** — aplats, gradients, points de couleur, sans aucun texte blanc par-dessus.
+- `BRAND_BRIGHT_HOVER` : `#E52522`, survol de `BRAND_BRIGHT`.
 - `LOGO_RED` : `#F10F15`, réservé au logo et aux images.
 
 Le rouge vif de la maquette ne doit pas porter seul un texte blanc ou un texte de lien. Utiliser `brand[500]` pour les éléments qui portent du texte.
+
+> **Arbitrage « Hybride » (septembre 2026).** La maquette d'origine utilisait `#FF3330` comme rouge
+> d'interface et `#16B879` comme vert. Mesurés :
+>
+> | Couleur | Avec texte blanc | Verdict |
+> |---|---:|---|
+> | `#FF3330` | 3,64:1 | échoue AA (4,5:1) |
+> | `#E50F1A` (`brand[500]`) | 4,76:1 | **conforme** |
+> | `#16B879` | 2,57:1 | échoue même le seuil 3:1 des grands textes |
+> | `success[700]` `#166534` | 7,13:1 | **conforme** |
+>
+> Décision : `#FF3330` est conservé pour l'identité visuelle (aplats décoratifs), `brand[500]` porte
+> tous les éléments qui contiennent du texte. Le vert de la maquette est remplacé par la rampe
+> `success` du design system. Aucun compromis d'accessibilité n'est nécessaire pour retrouver
+> l'allure de la maquette.
+
+### Surfaces
+
+Les fonds de cartes et de sections ont leurs propres jetons, pour qu'aucun composant n'ait à
+écrire un hex code ni à emprunter un pas de la rampe `ink` pour un usage sémantique.
+
+- `surface.page` : `ink[50]` — fond général de l'application.
+- `surface.card` : `ink[0]` — cartes et surfaces élevées.
+- `surface.muted` : `ink[100]` — zones discrètes, en-têtes de tableau.
+- `surface.lost` : `#FFF0F0` — teinte de fond des cartes « objet perdu ».
+- `surface.found` : `#EAF8F1` — teinte de fond des cartes « objet trouvé ».
+
+> ⚠️ `brand[500]` sur `surface.lost` ne mesure que **4,30:1** — sous le seuil AA. Un lien posé sur
+> un fond `lost` doit utiliser `brand[700]` (7,27:1). Cette contrainte est vérifiée par les tests
+> de parité.
 
 ### Neutres
 
@@ -93,6 +124,16 @@ Le rouge vif de la maquette ne doit pas porter seul un texte blanc ou un texte d
 - `ink[500]` : `#5B6470`, texte secondaire.
 - `ink[700]` : `#2A2F38`, texte principal secondaire.
 - `ink[900]` : `#0E1116`, texte principal fort.
+- `ink[950]` : `#0E1116`, texte des titres de widgets.
+
+> ⚠️ `ink[950]` a été ajouté pour réparer un défaut silencieux : `text-ink-950` était utilisé dans
+> six composants alors que la rampe s'arrêtait à `900`. Tailwind **ignore** une classe non définie
+> sans erreur ni avertissement — les titres concernés héritaient simplement de la couleur du
+> parent. Idem pour `text-2xs`, `text-body-sm` et `shadow-xs`, désormais définis.
+>
+> `ink[400]` sur `surface.page` ne mesure que **2,96:1**, sous le seuil 3:1 exigé pour les
+> composants d'interface. Un champ de saisie doit donc toujours porter son propre fond blanc et sa
+> propre bordure, et ne jamais se reposer sur le fond de la page.
 
 ### Couleurs sémantiques
 
@@ -163,7 +204,7 @@ robots: { index: false, follow: false }
 Fichier : `apps/web/src/components/app/AppSidebar.tsx`
 
 - Visible à partir de `lg` (`1024px`).
-- Largeur : `w-60`, soit 240 px.
+- Largeur : `w-64`, soit **256 px**.
 - Fond blanc.
 - Bordure droite `border-ink-200`.
 - Logo dans l’en-tête de la sidebar.
@@ -172,6 +213,11 @@ Fichier : `apps/web/src/components/app/AppSidebar.tsx`
 - Chaque cible interactive a une hauteur minimale de 48 px.
 - Une entrée `Modération` est ajoutée pour les profils `MODERATOR` et `ADMIN`.
 - Le bloc inférieur contient `Déclarer une perte` et la signature `Ensemble, retrouvons ce qui compte.`
+
+> **Largeur tranchée.** Le document indiquait `w-60` (240 px) en §8 et 248 px en §12 : deux valeurs
+> pour une seule décision. Le code utilise `w-64` (256 px), qui laisse la place aux libellés longs
+> de `APP_NAV` (« Mes transactions », « Aide & support ») sans troncature. C'est cette valeur qui
+> fait foi ; §12 a été corrigé.
 
 Ordre de navigation actuel :
 
@@ -191,7 +237,7 @@ La sidebar desktop est masquée sur mobile. Elle ne doit pas être dupliquée da
 
 Fichier : `apps/web/src/components/app/AppTopBar.tsx`
 
-- Hauteur : 64 px.
+- Hauteur : 72 px.
 - Position sticky en haut.
 - Fond blanc translucide avec `backdrop-blur-sm`.
 - Bordure inférieure `border-ink-200`.
@@ -202,6 +248,10 @@ Fichier : `apps/web/src/components/app/AppTopBar.tsx`
 - Sur mobile : bouton menu, titre `Mon espace` et menu dépliable.
 
 La future recherche interactive devra conserver le même point d’entrée et ajouter un debounce de 250 à 300 ms. Le pays et le sélecteur de langue restent à ajouter.
+
+> **Hauteur tranchée.** Le brief de refonte demandait une top bar entre 72 et 80 px, ce document
+> indiquait 64 px. Le code est à 72 px, la borne basse du brief — valeur retenue comme source de
+> vérité. À 64 px, la recherche globale et le bloc profil se retrouvaient comprimés.
 
 ## 10. Navigation mobile
 
@@ -300,7 +350,10 @@ Fichier : `apps/web/src/components/app/dashboard/RecentActivities.tsx`
 - Chaque ligne contient un badge de type, un badge de statut, le titre, la localisation et la date.
 - Le lien « Voir tout » mène à `/app/objets`.
 - L’état vide doit être affiché si aucun élément n’est disponible.
-- Les emojis servent actuellement de placeholders visuels. Les remplacer progressivement par des icônes Lucide ou des images réelles lorsque le stockage photo sera activé.
+- ✅ **Les emojis ont été supprimés** (voir §31). Chaque ligne affiche désormais l’icône Lucide de la
+  catégorie de l’objet, résolue par `categoryIcon()` depuis `apps/web/src/lib/icons.ts`, avec
+  `Package` en repli pour toute catégorie non listée. Le libellé catégorie reste affiché en texte :
+  l’icône accélère la lecture, elle ne la remplace pas.
 
 Statuts visuels :
 
@@ -317,8 +370,13 @@ Fichier : `apps/web/src/components/app/dashboard/RecentTransactions.tsx`
 
 - Affiche cinq transactions maximum sur le dashboard.
 - La page `/app/transactions` affiche l’historique complet.
-- Chaque transaction contient une icône ou placeholder, un libellé, une date et un montant.
-- Les crédits sont en vert ; les débits sont en rouge.
+- Chaque transaction contient une icône Lucide, un libellé, une date et un montant.
+- ⚠️ **La couleur d’une transaction reflète sa NATURE, pas son signe.** Une récompense trouveur est
+  verte, une mise en relation rouge de marque, un rechargement bleu, un retrait neutre, un bonus
+  communautaire ambre — voir `TRANSACTION_META` dans `icons.ts`.
+- Le signe comptable est porté **séparément**, par le montant lui-même (`+` / `−`, en `tabular`).
+  Colorer selon le signe — vert pour tout crédit — rendrait indistinguables une récompense et un
+  rechargement, deux opérations qui n’ont pourtant rien à voir.
 - Les montants sont formatés en `fr-FR` avec le suffixe `FCFA`.
 - Les données sont reçues via props `Transaction[]`.
 
@@ -336,20 +394,26 @@ Fichier : `apps/web/src/components/app/dashboard/NotificationsWidget.tsx`
 
 - Affiche quatre notifications maximum.
 - Le lien « Voir tout » mène à `/app/notifications`.
-- Une notification non lue est visuellement différenciée par `bg-brand-50/40` et `border-brand-200`.
+- Une notification non lue est visuellement différenciée par `bg-brand-50/40` et `border-brand-200`, **et par le texte explicite « · Non lue »**. Le fond seul ne suffit pas : il ne dit rien à un lecteur d’écran, et beaucoup d’utilisateurs ne perçoivent pas la nuance.
 - Le temps est rendu de façon relative : moins d’une heure, heures ou jours.
 - Les données sont reçues via `AppNotification[]`.
 - Le composant ne doit jamais exposer de données sensibles de vérification.
+- La pastille de chaque notification est colorée **selon sa nature** via `notificationMeta()` — voir §31.
 
 ## 18. Bannière étiquettes
 
 Fichier : `apps/web/src/components/app/dashboard/LiguitaTagsBanner.tsx`
 
 - Message : les étiquettes Liguita protègent les objets contre la perte.
-- fond vert très clair ;
+- fond **vert très clair** (`success-50`) ;
 - CTA vers l’offre ou la commande ;
 - illustration remplacée plus tard par un SVG optimisé ;
 - aucune photo utilisateur avant activation du stockage.
+
+> ⚠️ **Correction apportée.** La bannière était sur `bg-brand-50` — un fond rose. Or c’est un produit
+> de *protection* : le rose y lit comme une alerte ou une perte, exactement l’inverse du message.
+> Elle est passée en `success-50`, conformément à la ligne « fond vert très clair » ci-dessus, qui
+> était déjà la règle mais que le code ne respectait pas.
 
 ## 19. Navigation rapide
 
@@ -366,22 +430,51 @@ La grille utilise deux colonnes sur mobile et quatre colonnes à partir de `sm`.
 
 ## 20. Routes de l’espace connecté
 
+### `/app` — espace particulier
+
 | Route | Rôle | État |
 |---|---|---|
-| `/app` | Tableau de bord | Implémenté avec données mock |
+| `/app` | Tableau de bord | Implémenté, données mock |
 | `/app/objets` | Mes objets | Fonctionnel |
-| `/app/annonces` | Recherches sauvegardées | Implémenté |
-| `/app/portefeuille` | Solde et historique court | Implémenté avec données mock |
-| `/app/transactions` | Historique des transactions | Implémenté avec données mock |
+| `/app/annonces` | Mes annonces et recherches sauvegardées | Implémenté |
+| `/app/portefeuille` | Solde et historique court | Implémenté, données mock |
+| `/app/transactions` | Historique des transactions | Implémenté, données mock |
 | `/app/correspondances` | Correspondances | Fonctionnel |
+| `/app/correspondances/[id]` | Détail d’une correspondance | Fonctionnel |
+| `/app/correspondances/[id]/verification` | Vérification par questions | Fonctionnel |
 | `/app/messages` | Messages | Fonctionnel |
 | `/app/notifications` | Notifications | Fonctionnel |
 | `/app/profil` | Profil | Fonctionnel |
-| `/app/paiements` | Paiements | À finaliser |
-| `/app/recompenses` | Récompenses | À finaliser |
+| `/app/perdus` | Mes déclarations de perte | Fonctionnel |
+| `/app/trouves` | Mes déclarations d’objet trouvé | Fonctionnel |
+| `/app/recherche` | Recherche interne | Fonctionnel |
+| `/app/alertes` | Alertes sauvegardées | Fonctionnel |
+| `/app/avis` | Avis et évaluations | Fonctionnel |
+| `/app/securite` | Sécurité du compte | Fonctionnel |
+| `/app/paiements` | Paiements | Fonctionnel |
+| `/app/recompenses` | Récompenses | Fonctionnel |
 | `/app/moderation` | Modération staff | Fonctionnel selon rôle |
 
-Ne pas créer d’alias `/dashboard` sans décision de migration explicite. La surface officielle est `/app`.
+### `/business` — espace professionnel
+
+11 routes (tableau de bord, objets trouvés, annonces, statistiques, facturation, profil, etc.).
+Documenté séparément.
+
+### `/admin` — administration
+
+18 routes (utilisateurs, transactions, signalements, fraude, tarification, référentiel, etc.).
+Documenté séparément.
+
+### `/dashboard` — non implémenté, et volontairement
+
+Le brief de refonte (§23) listait `/dashboard` et ses sous-routes. **Cette surface n’existe pas et
+ne doit pas être créée comme alias.** La surface officielle est `/app`, et le document l’affirmait
+déjà avant le brief.
+
+Créer `/dashboard` comme simple redirection vers `/app` aurait un coût réel : deux URL pour un même
+contenu, donc deux entrées d’indexation à gérer, deux cibles de redirection après connexion, et une
+ambiguïté permanente dans le code et les tests. La décision est de conserver `/app` seul et de
+corriger le brief, pas de dupliquer la surface.
 
 ## 21. Authentification
 
@@ -461,7 +554,11 @@ Règles :
 - Contraste WCAG AA pour les textes.
 - Focus visible sur les éléments interactifs.
 - Aucun `<div>` cliquable.
-- Les emojis décoratifs sont masqués avec `aria-hidden` lorsqu’ils ne portent pas d’information.
+- **Aucun emoji n’est utilisé comme icône dans l’espace connecté** (voir §31). Cette règle remplace
+  la précédente, qui tolérait des emojis décoratifs masqués par `aria-hidden`.
+- Une icône qui porte une information sans texte visible — par exemple l’approbation d’une réponse de
+  vérification en modération — doit fournir un libellé aux lecteurs d’écran via `sr-only`. Une icône
+  seule est un pictogramme, pas une information.
 - Les couleurs sont toujours doublées d’un texte ou d’une icône.
 
 ## 25. Images et photos
@@ -510,6 +607,11 @@ Utiliser :
 
 Ne pas introduire une deuxième bibliothèque d’icônes, une seconde palette ou un nouveau design system sans mise à jour de `packages/ui/src/tokens.ts` et de ses tests de parité.
 
+> **Pourquoi cette règle est formulée ainsi.** Trois problèmes de ce type ont été trouvés dans le
+> code et sont documentés en §31. Dans chaque cas, l’écart n’avait produit ni erreur de build, ni
+> échec de test, ni avertissement à l’exécution — il se manifestait uniquement comme « le design ne
+> ressemble pas à la maquette ». Le garde-fou est donc un test, pas une intention.
+
 ## 29. Checklist de l’implémentation actuelle
 
 ### Shell
@@ -546,12 +648,87 @@ Ne pas introduire une deuxième bibliothèque d’icônes, une seconde palette o
 
 ### UX complémentaire
 
+- [x] Icônes Lucide à la place des emojis (voir §31).
+- [x] Palette unifiée — plus aucune couleur hors jetons.
+- [x] Jetons Tailwind manquants réparés (`ink-950`, `2xs`, `body-sm`, `shadow-xs`).
+- [x] Contraste du variant `success` du bouton corrigé.
 - [ ] Illustrations SVG finales.
 - [ ] Photos d’objets.
 - [ ] Badge de notifications non lus.
 - [ ] Sélecteur pays/langue.
 - [ ] Recherche globale avec debounce.
 - [ ] Tests E2E du parcours OTP.
+
+## 31. Corrections appliquées — septembre 2026
+
+Cette section documente des défauts réels trouvés dans le code, leur cause, et le garde-fou posé.
+Elle existe parce qu’aucun de ces problèmes ne se signalait de lui-même.
+
+### 31.1 Les emojis utilisés comme icônes
+
+L’espace connecté affichait des emojis partout : 👛 📱 🪪 🔑 📦 pour les catégories d’objets, 🎁 🤝 💳
+📤 🌟 pour les transactions, ✅ 📦 🔗 💚 🌟 📣 pour les notifications, et même un 🌳 de 72 px dans la
+sidebar. Trois tables d’emojis coexistaient, une par widget, avec chacune sa convention.
+
+Le problème n’est pas esthétique. Un emoji est rendu par le **système d’exploitation** : le même 👛
+ne ressemble pas à la même chose sur iOS, sur Android et sur Windows. Sur un téléphone d’entrée de
+gamme — le matériel que vise réellement Liguita — ils sont souvent méconnaissables. Et ils ne
+peuvent pas hériter d’une couleur du design system.
+
+**Correction.** Un fichier unique, `apps/web/src/lib/icons.ts`, remplace les trois tables :
+`CATEGORY_ICONS` / `categoryIcon()`, `KIND_META`, `STATUS_META`, `TRANSACTION_META` /
+`transactionMeta()`, `NOTIFICATION_META` / `notificationMeta()`, et `TONES`. Toutes les fonctions de
+résolution ont un repli explicite (`?? Package`, `?? Megaphone`), de sorte qu’une valeur inconnue
+produit une icône générique correcte plutôt qu’un rendu vide.
+
+Les icônes Lucide sont des SVG, rendues identiquement partout, et héritent de `currentColor`.
+
+### 31.2 Jetons Tailwind inexistants
+
+Quatre classes étaient utilisées dans tout le code alors qu’elles n’étaient définies nulle part :
+
+| Classe | Occurrences | Conséquence |
+|---|---:|---|
+| `text-body-sm` | 59 | Corps de texte à la taille héritée |
+| `text-2xs` | 30 | Idem |
+| `text-ink-950` | 6 | Titres à la couleur héritée du parent |
+| `shadow-xs` | tous les widgets | Aucune ombre |
+
+**Tailwind ignore silencieusement une classe non définie.** Pas d’erreur de build, pas
+d’avertissement au lint, pas d’échec de test, pas de trace à l’exécution — la classe ne produit
+simplement aucun CSS. Le symptôme se réduit à « ça ne ressemble pas à la maquette », ce qui est
+précisément le genre de défaut qu’on attribue à tort à un problème de goût.
+
+**Correction.** Ajout des jetons dans `tokens.ts` **et** dans `tailwind.preset.cjs`, plus quatre
+tests de régression — dont un garde-fou général qui parcourt toutes les couleurs du preset et
+échoue si l’une d’elles référence un pas absent de la rampe. Le fichier de preset est maintenu en
+parité stricte avec les jetons par les tests.
+
+### 31.3 Couleurs hors palette
+
+`emerald-*`, `amber-600`, `sky-50`, `pink-*`, `red-600` et `ink-800` étaient utilisés directement,
+en violation de la règle « ne pas introduire une seconde palette ». Une pastille de notification
+était même `bg-emerald-100` quelle que soit la nature de la notification : une correspondance, un
+paiement et une récompense avaient exactement la même apparence.
+
+**Correction.** Tout passe par `TONES`. Le violet est conservé pour le seul usage que la §5 lui
+réserve — la correspondance. Les statuts qui n’étaient spécifiés nulle part (« Publié ») sont passés
+en bleu d’information plutôt qu’en violet, pour ne pas diluer cette réservation.
+
+### 31.4 Contraste : deux défauts préexistants
+
+- Le variant `success` du bouton posait du blanc sur `success[500]` (`#16A34A`), soit **3,30:1** —
+  sous le seuil AA de 4,5:1. Corrigé vers `success[700]` (**7,13:1**).
+- La bannière étiquettes était sur un fond rose alors que c’est un message de protection (§18).
+
+### 31.5 Le garde-fou
+
+`packages/ui/src/__tests__/tokens-parity.test.ts` est passé de 19 à **30 tests**. Il vérifie la
+parité jetons ↔ preset, la définition de chaque classe utilisée, et mesure les ratios de contraste
+réels sur les paires de couleurs effectivement employées dans l’interface.
+
+Le test de contraste réimplémente volontairement la formule de luminance au lieu d’importer
+`packages/ui/src/lib/contrast.ts` : une fonction de mesure qui se vérifie elle-même ne vérifie rien.
 
 ## 30. Priorités produit
 
