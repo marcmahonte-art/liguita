@@ -37,6 +37,7 @@ interface LostDraft {
   neighborhoodSlug: string;
   placeLabel: string;
   occurredDate: string;
+  isPublic: boolean;
 }
 
 const INITIAL_FORM: LostDraft = {
@@ -50,6 +51,7 @@ const INITIAL_FORM: LostDraft = {
   neighborhoodSlug: '',
   placeLabel: '',
   occurredDate: new Date().toISOString().split('T')[0] || '',
+  isPublic: true,
 };
 
 export default function DeclareLostItemPage() {
@@ -139,6 +141,7 @@ export default function DeclareLostItemPage() {
     fd.set('neighborhoodSlug', formData.neighborhoodSlug);
     fd.set('placeLabel', formData.placeLabel.trim());
     fd.set('occurredAt', formData.occurredDate);
+    fd.set('isPublic', String(formData.isPublic));
     for (const photo of selectedPhotos) {
       fd.append('photos', photo);
     }
@@ -522,6 +525,20 @@ export default function DeclareLostItemPage() {
                   required
                 />
               </div>
+
+              <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-brand-100 bg-brand-50/50 p-4 text-caption text-ink-700">
+                <input
+                  type="checkbox"
+                  checked={formData.isPublic}
+                  onChange={(event) => update('isPublic', event.target.checked)}
+                  className="mt-0.5 size-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500"
+                />
+                <span>
+                  <strong className="block text-ink-900">Publier mon objet dans les recherches</strong>
+                  Son titre, sa photo, son lieu approximatif et sa date seront visibles publiquement.
+                  Votre nom et vos coordonnées resteront privés.
+                </span>
+              </label>
 
               <div className="flex items-start gap-3 rounded-2xl border border-ink-200 bg-ink-50 p-4 text-caption text-ink-700">
                 <ShieldCheck size={20} className="mt-0.5 shrink-0 text-emerald-600" />

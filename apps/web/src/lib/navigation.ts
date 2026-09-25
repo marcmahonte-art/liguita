@@ -44,6 +44,7 @@ export const PUBLIC_NAV: readonly NavItem[] = [
   { href: '/', label: 'Accueil', icon: Home },
   { href: '/rechercher', label: 'Rechercher', icon: Search },
   { href: '/objets-trouves', label: 'Objets trouvés', icon: Package },
+  { href: '/objets-perdus', label: 'Objets perdus', icon: Package },
   { href: '/tarifs', label: 'Tarifs', icon: Wallet },
   { href: '/about', label: 'À propos', icon: Info },
   { href: '/business', label: 'Entreprises', icon: Building2 },
@@ -127,6 +128,7 @@ export const FOOTER_COLUMNS: readonly FooterColumn[] = [
     links: [
       { href: '/rechercher', label: 'Rechercher un objet' },
       { href: '/objets-trouves', label: 'Objets trouvés' },
+      { href: '/objets-perdus', label: 'Objets perdus' },
       { href: '/declarer/perdu', label: 'Déclarer une perte' },
       { href: '/declarer/trouve', label: 'Déclarer un objet trouvé' },
       { href: '/business', label: 'Liguita Business' },

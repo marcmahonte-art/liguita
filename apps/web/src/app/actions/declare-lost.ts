@@ -48,6 +48,7 @@ export async function declareLostItem(formData: FormData): Promise<DeclareLostRe
   const description = String(formData.get('description') ?? '').trim();
   const declaredValueRaw = String(formData.get('declaredValueXaf') ?? '').trim();
   const photos = formData.getAll('photos').filter((value): value is File => value instanceof File);
+  const isPublic = formData.get('isPublic') === 'true';
 
   if (!categoryCode || !itemTypeCode || !title || !citySlug || !placeLabel || !occurredAt) {
     return {
@@ -90,6 +91,7 @@ export async function declareLostItem(formData: FormData): Promise<DeclareLostRe
       place_label: placeLabel,
       occurred_at: occurredAt,
       status: 'DECLARED',
+      is_public: isPublic,
       declared_value_xaf:
         declaredValueXaf !== null && Number.isFinite(declaredValueXaf)
           ? declaredValueXaf

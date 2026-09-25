@@ -166,6 +166,7 @@ export interface LostItem {
   place_label: string;
   occurred_at: string;
   status: LostStatus;
+  is_public: boolean;
   declared_value_xaf: number | null;
   created_at: string;
   updated_at: string;
@@ -226,6 +227,21 @@ export interface PublicFoundItem {
 }
 
 /** Ligne de la RPC `search_found_items` : `PublicFoundItem` + curseur. */
+export interface PublicLostItem {
+  id: string;
+  category_code: string;
+  item_type_code: string;
+  title: string;
+  brand: string | null;
+  color: string | null;
+  city_slug: string;
+  neighborhood_slug: string | null;
+  occurred_at: string;
+  status: LostStatus;
+  created_at: string;
+  photo_path: string | null;
+}
+
 export interface SearchFoundItemsRow extends PublicFoundItem {
   next_cursor_found_at: string | null;
   next_cursor_id: string | null;
