@@ -146,6 +146,7 @@ export interface MatchDetail {
   score: number;
   level: string;
   status: string;
+  claimStatus: string | null;
   created_at: string;
   breakdown: Record<string, number>;
   lost: {
@@ -192,6 +193,12 @@ export async function getMatchDetail(
   if (error) return { item: null, error: error.message };
   if (!match) return { item: null };
 
+  const { data: claim } = await supabase
+    .from('claims')
+    .select('status')
+    .eq('match_id', id)
+    .maybeSingle();
+
   // Après contrôle RLS sur `matches`, charge les deux côtés en service_role
   // (le trouveur ne peut pas lire `lost_items` d'un tiers en RLS).
   const reader = tryCreateServiceClient() ?? supabase;
@@ -216,9 +223,10 @@ export async function getMatchDetail(
     item: {
       id: match.id,
       score: Number(match.score),
-      level: match.level,
-      status: match.status,
-      created_at: match.created_at,
+       level: match.level,
+       status: match.status,
+       claimStatus: claim?.status ?? null,
+       created_at: match.created_at,
       breakdown: (match.breakdown ?? {}) as Record<string, number>,
       lost: lostRes.data as MatchDetail['lost'],
       found: foundRes.data as MatchDetail['found'],

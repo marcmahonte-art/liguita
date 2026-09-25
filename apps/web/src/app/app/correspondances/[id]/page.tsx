@@ -239,7 +239,7 @@ export default function MatchDetailPage() {
           >
             <ShieldCheck size={16} /> Vérifier ma propriété
           </Link>
-          {item.status === 'CLAIMED' ? (
+           {item.status === 'CLAIMED' && item.claimStatus === 'APPROVED' ? (
             <button
               type="button"
               disabled={isPending}
