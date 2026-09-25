@@ -13,9 +13,7 @@ import {
   ArrowLeftRight,
   Bell,
   Building2,
-  HelpCircle,
   Home,
-  Info,
   LayoutDashboard,
   LifeBuoy,
   Megaphone,
@@ -38,15 +36,24 @@ export interface NavItem {
 /* En-tête public                                                             */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * En-tête public — volontairement court.
+ *
+ * ⚠️ Quatre entrées ont été retirées : « Objets trouvés », « Tarifs », « À propos » et
+ * « Aide ». Un menu public de huit entrées sur un écran large n'est pas un menu, c'est
+ * une table des matières — et chaque entrée supplémentaire réduit la part d'attention
+ * Revenue à celles qui restent. Les pages correspondantes restent accessibles par leur
+ * URL et par les liens contextuels (détail d'un objet, pied de page) : retirer un lien
+ * n'est pas retirer une page.
+ *
+ * On garde « Objets perdus » et non « Objets trouvés » : la perte est le point de
+ * départ du service, le trouvaille en est la conséquence.
+ */
 export const PUBLIC_NAV: readonly NavItem[] = [
   { href: '/', label: 'Accueil', icon: Home },
   { href: '/rechercher', label: 'Rechercher', icon: Search },
-  { href: '/objets-trouves', label: 'Objets trouvés', icon: Package },
   { href: '/objets-perdus', label: 'Objets perdus', icon: Package },
-  { href: '/tarifs', label: 'Tarifs', icon: Wallet },
-  { href: '/about', label: 'À propos', icon: Info },
   { href: '/business', label: 'Entreprises', icon: Building2 },
-  { href: '/help', label: 'Aide', icon: HelpCircle },
 ];
 
 /* -------------------------------------------------------------------------- */

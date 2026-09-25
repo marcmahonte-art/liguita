@@ -41,18 +41,28 @@ export function ItemCard({ item, matchLabel, photoUrl, className }: ItemCardProp
 
   return (
     <article
-      className={`flex h-full flex-col justify-between rounded-2xl border border-ink-200 bg-white p-5 shadow-xs transition hover:border-brand-300 hover:shadow-card ${className ?? ''}`}
+      className={`flex h-full flex-col justify-between rounded-2xl border border-ink-200 bg-white shadow-xs transition hover:border-brand-300 hover:shadow-200 ${className ?? ''}`}
     >
-      {photoUrl ? (
-        <div className="relative aspect-[4/3] overflow-hidden bg-ink-100">
+      {/* Le bloc image est rendu même sans photo.
+          ⚠️ Le retirait conditionnel désalignait la grille : une carte sur six gardait
+          son image, les cinq autres partaient directement au titre, et la colonne
+          descendait d'environ 200 px. Une place réservée et vide se voit ; un
+          décalage de mise en page, non. */}
+      <div className="relative aspect-[4/3] overflow-hidden bg-ink-100">
+        {photoUrl ? (
           <img
             src={photoUrl}
             alt={`Photo de l’objet trouvé : ${item.title}`}
             className="h-full w-full object-cover"
           />
-        </div>
-      ) : null}
-      <div>
+        ) : (
+          <div className="flex h-full flex-col items-center justify-center gap-2 text-ink-400">
+            <Camera size={30} aria-hidden />
+            <span className="text-caption">Aucune photo</span>
+          </div>
+        )}
+      </div>
+      <div className="p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Badge tone="found" dot>
             Objet trouvé
