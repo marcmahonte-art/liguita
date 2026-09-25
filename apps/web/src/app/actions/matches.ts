@@ -2,6 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 
+import { findCategory } from '@liguita/config';
+
 import { createClient } from '../../lib/supabase/server';
 import { tryCreateServiceClient } from '../../lib/supabase/service';
 import { runMatchingForFound, runMatchingForLost } from '../../lib/matching/run';
@@ -225,9 +227,123 @@ export async function getMatchDetail(
 }
 
 /** Change le statut d'un match (ex. REJECTED). Le worker ne l'écrase jamais. */
+export type MatchPhoto = {
+  side: 'lost' | 'found';
+  signedUrl: string;
+};
+
+export interface MatchPhotosResult {
+  success: boolean;
+  photos?: MatchPhoto[];
+  canSeeCounterpart?: boolean;
+  viewerSide?: 'lost' | 'found' | 'staff';
+  error?: string;
+}
+
+const MATCH_PHOTO_PATH_PATTERN = /^(LOST|FOUND)\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png|webp|avif)$/i;
+
+function isAllowedMatchPhotoPath(path: string, kind: string, itemId: string): boolean {
+  return path.startsWith(`${kind}/${itemId}/`) && MATCH_PHOTO_PATH_PATTERN.test(path);
+}
+
+export async function getMatchPhotos(matchId: string): Promise<MatchPhotosResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: 'Non connecté' };
+
+  const { data: match, error: matchError } = await supabase
+    .from('matches')
+    .select('id, lost_item_id, found_item_id, status')
+    .eq('id', matchId)
+    .maybeSingle();
+  if (matchError) return { success: false, error: matchError.message };
+  if (!match) return { success: false, error: 'Correspondance introuvable.' };
+
+  const service = tryCreateServiceClient();
+  if (!service) return { success: false, error: 'Service indisponible.' };
+
+  const [lostResult, foundResult] = await Promise.all([
+    service.from('lost_items').select('id, user_id, category_code').eq('id', match.lost_item_id).maybeSingle(),
+    service
+      .from('found_items')
+      .select('id, finder_id, category_code')
+      .eq('id', match.found_item_id)
+      .maybeSingle(),
+  ]);
+  if (lostResult.error || foundResult.error) {
+    return { success: false, error: 'Impossible de vérifier les objets de la correspondance.' };
+  }
+
+  const lost = lostResult.data as { id: string; user_id: string; category_code: string } | null;
+  const found = foundResult.data as {
+    id: string;
+    finder_id: string | null;
+    category_code: string;
+  } | null;
+  if (!lost || !found) return { success: false, error: 'Correspondance incomplète.' };
+
+  const { data: profile } = await service
+    .from('profiles')
+    .select('app_role')
+    .eq('id', user.id)
+    .in('app_role', ['ADMIN', 'MODERATOR'])
+    .maybeSingle();
+  const isStaff = Boolean(profile);
+  const role = isStaff ? 'staff' : lost.user_id === user.id ? 'lost' : found.finder_id === user.id ? 'found' : null;
+  if (!role) return { success: false, error: 'Accès refusé.' };
+
+  const { data: claim } = await service
+    .from('claims')
+    .select('status')
+    .eq('match_id', matchId)
+    .eq('claimant_id', lost.user_id)
+    .maybeSingle();
+  const counterpartCategory =
+    role === 'lost' ? found.category_code : role === 'found' ? lost.category_code : null;
+  const counterpartIsSensitive = Boolean(counterpartCategory && findCategory(counterpartCategory)?.isSensitive);
+  const canSeeCounterpart =
+    isStaff ||
+    (!counterpartIsSensitive &&
+      claim?.status === 'APPROVED' &&
+      (match.status === 'CLAIMED' || match.status === 'CONVERTED'));
+
+  const sides: Array<'lost' | 'found'> = [];
+  if (role === 'staff' || role === 'lost') sides.push('lost');
+  if (role === 'staff' || role === 'found') sides.push('found');
+  if (canSeeCounterpart && role === 'lost') sides.push('found');
+  if (canSeeCounterpart && role === 'found') sides.push('lost');
+  const uniqueSides = [...new Set(sides)];
+
+  const photos: MatchPhoto[] = [];
+  for (const side of uniqueSides) {
+    const itemKind = side === 'lost' ? 'LOST' : 'FOUND';
+    const itemId = side === 'lost' ? lost.id : found.id;
+    const { data: itemPhotos, error: photosError } = await service
+      .from('item_photos')
+      .select('url')
+      .eq('item_kind', itemKind)
+      .eq('item_id', itemId)
+      .order('sort_order', { ascending: true });
+    if (photosError) return { success: false, error: photosError.message };
+
+    for (const photo of itemPhotos ?? []) {
+      if (!isAllowedMatchPhotoPath(photo.url, itemKind, itemId)) continue;
+      const signed = await service.storage.from('item-photos').createSignedUrl(photo.url, 60);
+      if (signed.error || !signed.data?.signedUrl) {
+        return { success: false, error: signed.error?.message ?? 'Photo indisponible.' };
+      }
+      photos.push({ side, signedUrl: signed.data.signedUrl });
+    }
+  }
+
+  return { success: true, photos, canSeeCounterpart, viewerSide: role };
+}
+
 export async function setMatchStatus(
   matchId: string,
-  status: 'NEW' | 'SEEN' | 'CLAIMED' | 'REJECTED' | 'EXPIRED' | 'CONVERTED',
+  status: 'SEEN' | 'REJECTED',
 ): Promise<{ ok: boolean; error?: string }> {
   const supabase = await createClient();
   const {

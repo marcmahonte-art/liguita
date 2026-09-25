@@ -1,13 +1,14 @@
 'use client';
 
-import { ArrowLeft, MessageCircle, ShieldCheck, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { ArrowLeft, MessageCircle, ShieldCheck, ThumbsDown } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
 
 import { Badge, buttonClasses, Skeleton } from '@liguita/ui';
 
-import { getMatchDetail, setMatchStatus, type MatchDetail } from '../../../actions/matches';
+import { getMatchDetail, getMatchPhotos, setMatchStatus, type MatchDetail, type MatchPhoto } from '../../../actions/matches';
+import { MatchPhotoGallery } from '../../../../components/app/MatchPhotoGallery';
 import { useAuth } from '../../../../lib/auth/auth-context';
 import { formatLongDate } from '../../../../lib/format';
 
@@ -30,6 +31,10 @@ export default function MatchDetailPage() {
   const [item, setItem] = useState<MatchDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<MatchPhoto[]>([]);
+  const [canSeeCounterpart, setCanSeeCounterpart] = useState(false);
+  const [viewerSide, setViewerSide] = useState<'lost' | 'found' | 'staff'>('staff');
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const matchId = params.id;
@@ -42,7 +47,19 @@ export default function MatchDetailPage() {
       if (cancelled) return;
       if (result.error) setError(result.error);
       else if (!result.item) setError('Correspondance introuvable.');
-      else setItem(result.item);
+      else {
+        setItem(result.item);
+        void getMatchPhotos(matchId).then((photoResult) => {
+          if (cancelled) return;
+          if (photoResult.success) {
+            setPhotos(photoResult.photos ?? []);
+            setCanSeeCounterpart(photoResult.canSeeCounterpart ?? false);
+            setViewerSide(photoResult.viewerSide ?? 'staff');
+          } else {
+            setPhotoError(photoResult.error ?? 'Les photos sont indisponibles.');
+          }
+        });
+      }
       setIsLoading(false);
     });
 
@@ -51,7 +68,7 @@ export default function MatchDetailPage() {
     };
   }, [user, authLoading, matchId]);
 
-  function handleStatus(status: 'CLAIMED' | 'REJECTED') {
+  function handleStatus(status: 'REJECTED') {
     if (!item) return;
     startTransition(async () => {
       const result = await setMatchStatus(item.id, status);
@@ -157,6 +174,12 @@ export default function MatchDetailPage() {
                   </div>
                 ) : null}
               </dl>
+              <MatchPhotoGallery
+                photos={photos}
+                side="lost"
+                canSeeCounterpart={canSeeCounterpart}
+                isCounterpart={viewerSide === 'found'}
+              />
             </section>
           ) : null}
 
@@ -197,9 +220,17 @@ export default function MatchDetailPage() {
                   </div>
                 ) : null}
               </dl>
+              <MatchPhotoGallery
+                photos={photos}
+                side="found"
+                canSeeCounterpart={canSeeCounterpart}
+                isCounterpart={viewerSide === 'lost'}
+              />
             </section>
           ) : null}
         </div>
+
+        {photoError ? <p role="alert" className="text-caption text-danger-700">{photoError}</p> : null}
 
         <div className="mt-6 flex flex-wrap gap-3 border-t border-ink-100 pt-4">
           <Link
@@ -225,14 +256,6 @@ export default function MatchDetailPage() {
             className={buttonClasses({ variant: 'outline' })}
           >
             <ThumbsDown size={16} /> Pas le mien
-          </button>
-          <button
-            type="button"
-            disabled={isPending || item.status === 'CLAIMED'}
-            onClick={() => handleStatus('CLAIMED')}
-            className={buttonClasses({ variant: 'ghost' })}
-          >
-            <ThumbsUp size={16} /> C'est mon objet
           </button>
         </div>
       </div>
