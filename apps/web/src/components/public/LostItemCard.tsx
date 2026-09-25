@@ -61,12 +61,20 @@ export function LostItemCard({ item }: { item: PublicLostItemCard | PublicLostSe
             <span>Perdu le {formatLongDate(item.occurred_at)}</span>
           </div>
         </div>
-        <Link
-          href="/declarer/trouve"
-          className={buttonClasses({ variant: 'primary', block: true, size: 'sm', className: 'mt-5' })}
-        >
-          J&apos;ai trouvé cet objet
-        </Link>
+        <div className="mt-5 grid grid-cols-2 gap-2">
+          <Link
+            href={`/objets-perdus/${item.id}`}
+            className={buttonClasses({ variant: 'outline', block: true, size: 'sm' })}
+          >
+            Voir la fiche
+          </Link>
+          <Link
+            href="/declarer/trouve"
+            className={buttonClasses({ variant: 'primary', block: true, size: 'sm' })}
+          >
+            J&apos;ai trouvé
+          </Link>
+        </div>
       </div>
     </article>
   );

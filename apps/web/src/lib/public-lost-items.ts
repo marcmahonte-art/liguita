@@ -24,6 +24,56 @@ function text(row: Record<string, unknown>, key: string): string | null {
   return typeof value === 'string' ? value : null;
 }
 
+export interface PublicLostItemDetail extends PublicLostItemCard {
+  photos: string[];
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export async function fetchPublicLostItem(id: string): Promise<PublicLostItemDetail | null> {
+  if (!UUID_PATTERN.test(id)) return null;
+  const service = createServiceClient();
+  const { data, error } = await service
+    .from('lost_items')
+    .select('id, category_code, item_type_code, title, brand, color, city_slug, neighborhood_slug, occurred_at, status, created_at, is_public')
+    .eq('id', id)
+    .eq('is_public', true)
+    .in('status', ['DECLARED', 'SEARCHING'])
+    .maybeSingle();
+  if (error || !data) return null;
+
+  const { data: photoRows, error: photoError } = await service
+    .from('item_photos')
+    .select('url')
+    .eq('item_kind', 'LOST')
+    .eq('item_id', id)
+    .order('sort_order', { ascending: true });
+  if (photoError) throw new Error(photoError.message);
+
+  const photos: string[] = [];
+  for (const row of photoRows ?? []) {
+    if (!PHOTO_PATH_PATTERN.test(row.url) || !row.url.startsWith(`LOST/${id}/`)) continue;
+    const signed = await service.storage.from('item-photos').createSignedUrl(row.url, 60);
+    if (signed.data?.signedUrl) photos.push(signed.data.signedUrl);
+  }
+
+  return {
+    id: data.id,
+    category_code: data.category_code,
+    item_type_code: data.item_type_code,
+    title: data.title,
+    brand: data.brand,
+    color: data.color,
+    city_slug: data.city_slug,
+    neighborhood_slug: data.neighborhood_slug,
+    occurred_at: data.occurred_at,
+    status: data.status,
+    created_at: data.created_at,
+    photoUrl: photos[0] ?? null,
+    photos,
+  };
+}
+
 export async function fetchPublicLostItems(limit = 24): Promise<PublicLostItemCard[]> {
   const service = createServiceClient();
   const { data, error } = await service.rpc('search_public_lost_items', {
