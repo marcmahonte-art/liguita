@@ -1,67 +1,59 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import { EmptyState, Skeleton } from '@liguita/ui';
+import { Alert, EmptyState, Skeleton } from '@liguita/ui';
 
-import { markNotificationRead } from '../../actions/conversations';
-
+import {
+  listMyNotifications,
+  markNotificationRead,
+  type NotificationListItem,
+} from '../../actions/notifications';
 import { useAuth } from '../../../lib/auth/auth-context';
-import { createClient } from '../../../lib/supabase/client';
 import { formatShortDate } from '../../../lib/format';
-
-interface NotificationRow {
-  id: string;
-  kind: string;
-  title: string;
-  body: string | null;
-  read_at: string | null;
-  created_at: string;
-}
 
 export default function NotificationsPage() {
   const { user, isLoading: authLoading } = useAuth();
-  const [items, setItems] = useState<NotificationRow[]>([]);
+  const [items, setItems] = useState<NotificationListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [pendingId, setPendingId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    const result = await listMyNotifications();
+    if (result.error) setError(result.error);
+    else {
+      setError(null);
+      setItems(result.items);
+    }
+    setIsLoading(false);
+  }, []);
 
   useEffect(() => {
-    if (authLoading || !user) return;
-    const supabase = createClient();
-    let cancelled = false;
+    if (authLoading) return;
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
+    void load();
+  }, [authLoading, load, user]);
 
-    supabase
-      .from('notifications')
-      .select('id, kind, title, body, read_at, created_at')
-      .order('created_at', { ascending: false })
-      .limit(50)
-      .then(({ data }) => {
-        if (!cancelled) {
-          setItems((data ?? []) as NotificationRow[]);
-          setIsLoading(false);
-        }
-      });
-
-    const channel = supabase
-      .channel('notifications')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, () => {
-        if (!cancelled) {
-          void supabase
-            .from('notifications')
-            .select('id, kind, title, body, read_at, created_at')
-            .order('created_at', { ascending: false })
-            .limit(50)
-            .then(({ data }) => {
-              if (!cancelled) setItems((data ?? []) as NotificationRow[]);
-            });
-        }
-      })
-      .subscribe();
-
-    return () => {
-      cancelled = true;
-      void supabase.removeChannel(channel);
-    };
-  }, [user, authLoading]);
+  async function handleRead(id: string) {
+    if (pendingId) return;
+    setPendingId(id);
+    const result = await markNotificationRead(id);
+    if (result.ok) {
+      setItems((current) =>
+        current.map((item) =>
+          item.id === id ? { ...item, read_at: new Date().toISOString() } : item,
+        ),
+      );
+      setError(null);
+    } else {
+      setError(result.error ?? 'Impossible de marquer la notification comme lue.');
+    }
+    setPendingId(null);
+  }
 
   if (isLoading) {
     return (
@@ -74,9 +66,32 @@ export default function NotificationsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="font-display text-2xl font-extrabold text-ink-950 sm:text-3xl">
-        Notifications
-      </h1>
+      <div>
+        <h1 className="font-display text-2xl font-extrabold text-ink-950 sm:text-3xl">
+          Notifications
+        </h1>
+        <p className="mt-1 text-body text-ink-600">
+          Vos alertes de correspondance, de vérification et de paiement.
+        </p>
+      </div>
+
+      {error ? (
+        <Alert
+          tone="danger"
+          title="Notifications"
+          action={
+            <button
+              type="button"
+              onClick={() => void load()}
+              className="text-caption font-bold underline"
+            >
+              Réessayer
+            </button>
+          }
+        >
+          {error}
+        </Alert>
+      ) : null}
 
       {items.length === 0 ? (
         <EmptyState
@@ -85,32 +100,31 @@ export default function NotificationsPage() {
         />
       ) : (
         <ul className="space-y-3">
-          {items.map((n) => (
-            <li key={n.id}>
+          {items.map((notification) => (
+            <li key={notification.id}>
               <button
                 type="button"
-                onClick={() => {
-                  if (n.read_at) return;
-                  setItems((current) =>
-                    current.map((item) =>
-                      item.id === n.id ? { ...item, read_at: new Date().toISOString() } : item,
-                    ),
-                  );
-                  void markNotificationRead(n.id);
-                }}
-                className={`w-full rounded-2xl border p-4 text-left transition hover:border-brand-300 ${
-                  n.read_at ? 'border-ink-200 bg-white' : 'border-brand-200 bg-brand-50/40'
+                disabled={Boolean(notification.read_at) || pendingId === notification.id}
+                onClick={() => void handleRead(notification.id)}
+                className={`w-full rounded-2xl border p-4 text-left transition hover:border-brand-300 disabled:cursor-default ${
+                  notification.read_at
+                    ? 'border-ink-200 bg-white'
+                    : 'border-brand-200 bg-brand-50/40'
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <p className="font-display text-body-lg font-bold text-ink-950">{n.title}</p>
+                  <p className="font-display text-body-lg font-bold text-ink-950">
+                    {notification.title}
+                  </p>
                   <span className="shrink-0 text-caption text-ink-500">
-                    {formatShortDate(n.created_at)}
+                    {formatShortDate(notification.created_at)}
                   </span>
                 </div>
-                {n.body ? <p className="mt-1 text-body-sm text-ink-600">{n.body}</p> : null}
+                {notification.body ? (
+                  <p className="mt-1 text-body-sm text-ink-600">{notification.body}</p>
+                ) : null}
                 <p className="mt-2 text-2xs font-semibold uppercase tracking-wide text-ink-400">
-                  {n.kind}
+                  {notification.kind} · {notification.read_at ? 'Lue' : 'Non lue'}
                 </p>
               </button>
             </li>
