@@ -14,7 +14,7 @@
  * montants, sans que l'un puisse dériver de l'autre.
  */
 
-import { LEAF_CATEGORIES, type CategoryConfig } from '@liguita/config';
+import { LEAF_CATEGORIES, findCategory, type CategoryConfig } from '@liguita/config';
 import {
   CLASS_ORDER,
   PRICING_RULE_V1,
@@ -87,4 +87,35 @@ export function connectionFeeFor(pricingClass: PricingClass): number | null {
 /** Montant de la récompense reversée au trouveur pour une classe donnée. */
 export function finderRewardFor(pricingClass: PricingClass): number | null {
   return exampleForClass(pricingClass)?.quote.rewardAmount ?? null;
+}
+
+/**
+ * Récompense estimée pour un code de catégorie réel.
+ *
+ * Utilisé par le tableau de bord pour afficher, sur une annonce active, le montant que
+ * la personne peut espérer. C'est une **estimation** issue de la grille : elle ne vaut
+ * engagement, et le montant définitif n'est confirmé qu'au moment de la mise en relation.
+ *
+ * Renvoie `null` — et l'interface n'affiche alors aucun montant — lorsque la catégorie
+ * est inconnue ou lorsque la classe dépend d'une valeur déclarée (C5) : mieux vaut une
+ * case vide qu'un chiffre faux.
+ */
+export function finderRewardForCategory(categoryCode: string): number | null {
+  const category = findCategory(categoryCode);
+  if (!category) return null;
+  try {
+    return (
+      computeFee({
+        rule: PRICING_RULE_V1,
+        category: {
+          id: category.id,
+          defaultClass: category.defaultClass,
+          maxValueXaf: category.maxValueXaf,
+        },
+        declaredValueXaf: null,
+      }).rewardAmount ?? null
+    );
+  } catch {
+    return null;
+  }
 }

@@ -1,14 +1,16 @@
 'use client';
 
-import { Bell, Menu, Search, X } from 'lucide-react';
+import { Bell, ChevronDown, LogOut, Menu, Search, User, X } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 
 import { Avatar, buttonClasses, cn } from '@liguita/ui';
+import { formatMoney } from '@liguita/core/pricing';
 
 import { useAuth } from '../../lib/auth/auth-context';
-import { APP_NAV } from '../../lib/navigation';
+import { APP_NAV, APP_NAV_SECONDARY, isNavItemActive } from '../../lib/navigation';
+import { Logo } from '../brand/Logo';
 
 function displayNameOf(profile: {
   display_name: string | null;
@@ -20,14 +22,54 @@ function displayNameOf(profile: {
   return profile.phone ? `+${profile.phone}` : 'Mon compte';
 }
 
-export function AppTopBar() {
+export interface AppTopBarProps {
+  /** Nombre de notifications non lues — pastille sur la cloche. */
+  unreadCount: number;
+  /** Solde disponible, pour le raccourci portefeuille. `null` si le portefeuille est inaccessible. */
+  availableBalance: number | null;
+}
+
+/**
+ * Barre supérieure de l'espace connecté.
+ *
+ * Trois zones, une seule ligne : identité à gauche, recherche au centre, compte à droite.
+ * La recherche est ici — et nulle part ailleurs dans la coquille — parce que c'est
+ * l'action que l'on doit pouvoir lancer depuis n'importe quel écran sans y penser.
+ *
+ * Le logo n'apparaît que sous `lg` : au-delà, la barre latérale porte déjà l'identité,
+ * et deux logos sur un même écran sont deux fois la même information.
+ */
+export function AppTopBar({ unreadCount, availableBalance }: AppTopBarProps) {
   const { user, signOut } = useAuth();
+  const pathname = usePathname();
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isAccountOpen, setIsAccountOpen] = useState(false);
+  const accountRef = useRef<HTMLDivElement>(null);
 
+  /* La navigation change de page : tout ce qui est ouvert doit se refermer, sinon le
+     menu survit à la page que l'utilisateur vient de quitter. */
   useEffect(() => {
     setIsMenuOpen(false);
-  }, []);
+    setIsAccountOpen(false);
+  }, [pathname]);
+
+  /* Clic extérieur : ferme le menu compte sans empiler un calque invisible sur la page. */
+  useEffect(() => {
+    if (!isAccountOpen) return;
+    function onPointerDown(event: MouseEvent) {
+      if (!accountRef.current?.contains(event.target as Node)) setIsAccountOpen(false);
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setIsAccountOpen(false);
+    }
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [isAccountOpen]);
 
   async function handleSignOut() {
     await signOut();
@@ -39,99 +81,200 @@ export function AppTopBar() {
 
   return (
     <header className="sticky top-0 z-30 border-b border-ink-200 bg-white/95 backdrop-blur-sm">
-      <div className="flex h-[64px] items-center justify-between gap-3 px-4 sm:px-6">
-        <div className="flex items-center gap-2 lg:hidden">
+      <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-2 px-4 sm:gap-3 sm:px-6 lg:px-8">
+        {/* Identité — sous lg seulement, la barre latérale s'en charge au-delà. */}
+        <div className="flex shrink-0 items-center gap-1 lg:hidden">
           <button
             type="button"
             onClick={() => setIsMenuOpen((open) => !open)}
             aria-expanded={isMenuOpen}
+            aria-controls="menu-espace"
             aria-label={isMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
-            className="inline-flex size-11 items-center justify-center rounded-lg text-ink-900 hover:bg-ink-100"
+            className="inline-flex size-11 items-center justify-center rounded-lg text-ink-900 transition-colors hover:bg-ink-100"
           >
-            {isMenuOpen ? <X size={22} /> : <Menu size={22} />}
+            {isMenuOpen ? <X size={22} aria-hidden /> : <Menu size={22} aria-hidden />}
           </button>
-          <Link href="/app" className="font-display text-body-lg font-extrabold text-ink-950">
-            Mon espace
+          <Link href="/app" aria-label="Liguita — tableau de bord" className="flex items-center">
+            <Logo height={30} />
           </Link>
         </div>
 
-        {/* Barre de recherche globale (desktop uniquement) */}
+        {/* Recherche — action principale, disponible sur tous les écrans.
+            La largeur est plafonnée et centrée : sur un grand écran, une barre qui
+            s'étire d'un bord à l'autre n'est plus une barre de recherche, c'est un
+            filet, et le centre de gravité de l'écran se déplace vers la gauche.
+
+            ⚠️ Sous 640 px, le champ ne laisserait qu'une centaine de pixels — le
+            placeholder serait coupé au milieu d'un mot, ce qui est pire que pas de
+            champ du tout. On le remplace donc par un bouton-icône vers la page de
+            recherche : même destination, une seule touche, et l'en-tête reste lisible. */}
         <form
           action="/rechercher"
           method="get"
-          className="hidden flex-1 max-w-md lg:flex"
+          className="mx-auto hidden w-full max-w-[560px] flex-1 sm:block"
           role="search"
         >
           <div className="relative w-full">
             <Search
-              size={16}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none"
+              size={17}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-400"
               aria-hidden
             />
             <input
               id="topbar-search"
               type="search"
               name="q"
-              placeholder="Rechercher un objet, une ville, un mot-clé…"
+              placeholder="Rechercher un objet, une ville ou un mot-clé…"
               autoComplete="off"
-              className="h-10 w-full rounded-xl border border-ink-200 bg-ink-50 pl-9 pr-4 text-body text-ink-900 placeholder:text-ink-400 outline-none transition focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
+              className="h-11 w-full rounded-xl border border-ink-200 bg-ink-50 pl-9 pr-3 text-body text-ink-900 placeholder:text-ink-400 outline-none transition focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
             />
           </div>
         </form>
 
-        <div className="flex items-center gap-2">
+        <Link
+          href="/rechercher"
+          aria-label="Rechercher un objet"
+          className={cn(
+            buttonClasses({ variant: 'ghost', size: 'sm' }),
+            'inline-flex size-11 !px-0 justify-center sm:hidden',
+          )}
+        >
+          <Search size={20} aria-hidden />
+        </Link>
+
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+          {availableBalance !== null ? (
+            <Link
+              href="/app/portefeuille"
+              className={cn(
+                buttonClasses({ variant: 'ghost', size: 'sm' }),
+                'hidden !min-h-[44px] gap-2 px-3 sm:inline-flex',
+              )}
+            >
+              <span className="font-display text-body font-extrabold tabular text-ink-950">
+                {formatMoney(availableBalance)}
+              </span>
+              <span className="text-caption text-ink-500">Récompenses</span>
+            </Link>
+          ) : null}
+
           <Link
             href="/app/notifications"
-            aria-label="Notifications"
+            aria-label={
+              unreadCount > 0 ? `Notifications (${unreadCount} non lue${unreadCount > 1 ? 's' : ''})` : 'Notifications'
+            }
             className={cn(
               buttonClasses({ variant: 'ghost', size: 'sm' }),
-              'inline-flex size-11 !px-0 justify-center',
+              'relative inline-flex size-11 !px-0 justify-center',
             )}
           >
-            <Bell size={18} />
+            <Bell size={19} aria-hidden />
+            {unreadCount > 0 ? (
+              /* Pastille + libellé dans l'attribut `aria-label` : le nombre ne repose
+                 jamais sur la seule couleur. */
+              <span
+                aria-hidden
+                className="absolute right-1.5 top-1.5 inline-flex min-w-[18px] items-center justify-center rounded-full bg-brand-500 px-1 text-2xs font-bold leading-[18px] text-white"
+              >
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            ) : null}
           </Link>
 
           {user ? (
-            <div className="flex items-center gap-2">
-              <Link
-                href="/app/profil"
-                className={cn(
-                  buttonClasses({ variant: 'outline', size: 'sm' }),
-                  'hidden sm:inline-flex',
-                )}
-              >
-                <Avatar name={name} src={user.avatar_url} size="sm" className="size-6 text-2xs" />
-                <span className="max-w-28 truncate">{name}</span>
-              </Link>
+            <div className="relative" ref={accountRef}>
               <button
                 type="button"
-                onClick={handleSignOut}
-                className={cn(buttonClasses({ variant: 'ghost', size: 'sm' }), 'text-ink-600')}
+                onClick={() => setIsAccountOpen((open) => !open)}
+                aria-expanded={isAccountOpen}
+                aria-haspopup="menu"
+                className={cn(
+                  buttonClasses({ variant: 'ghost', size: 'sm' }),
+                  '!min-h-[44px] gap-2 !px-1.5',
+                )}
               >
-                Déconnexion
+                <Avatar name={name} src={user.avatar_url} size="sm" className="size-7 text-2xs" />
+                <span className="hidden max-w-24 truncate text-body font-bold text-ink-900 md:inline">
+                  {name}
+                </span>
+                <ChevronDown size={16} aria-hidden className="hidden text-ink-400 md:inline" />
+                <span className="sr-only">Ouvrir le menu du compte</span>
               </button>
+
+              {isAccountOpen ? (
+                <div
+                  role="menu"
+                  className="absolute right-0 top-[calc(100%+8px)] z-40 w-60 overflow-hidden rounded-xl border border-ink-200 bg-white p-1 shadow-200"
+                >
+                  <div className="flex items-center gap-3 rounded-lg px-3 py-2">
+                    <Avatar name={name} src={user.avatar_url} size="sm" />
+                    <div className="min-w-0">
+                      <p className="truncate font-display text-body font-bold text-ink-950">{name}</p>
+                      <p className="truncate text-caption text-ink-500">{user.email}</p>
+                    </div>
+                  </div>
+                  <div className="my-1 h-px bg-ink-100" aria-hidden />
+                  <Link
+                    href="/app/profil"
+                    role="menuitem"
+                    className="flex min-h-[44px] items-center gap-3 rounded-lg px-3 text-body font-bold text-ink-800 transition-colors hover:bg-ink-50"
+                  >
+                    <User size={17} aria-hidden />
+                    Mon profil
+                  </Link>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={handleSignOut}
+                    className="flex min-h-[44px] w-full items-center gap-3 rounded-lg px-3 text-left text-body font-bold text-ink-800 transition-colors hover:bg-ink-50"
+                  >
+                    <LogOut size={17} aria-hidden />
+                    Se déconnecter
+                  </button>
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>
       </div>
 
-      {/* Menu mobile repliable */}
-      {isMenuOpen ? (
-        <nav aria-label="Navigation espace" className="border-t border-ink-100 bg-white lg:hidden">
-          <ul className="flex flex-col p-2">
-            {APP_NAV.map((item) => (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className="flex min-h-[48px] items-center rounded-lg px-3 font-display text-body font-bold text-ink-800 hover:bg-ink-50"
-                >
-                  {item.label}
-                </Link>
-              </li>
-            ))}
+      {/* Menu mobile — même contenu et même état actif que la barre latérale, pour que
+          les deux surfaces ne se contredisent pas. */}
+      <div
+        id="menu-espace"
+        hidden={!isMenuOpen}
+        className="border-t border-ink-100 bg-white lg:hidden"
+      >
+        <nav aria-label="Navigation de l'espace" className="max-h-[70vh] overflow-y-auto p-2">
+          <ul className="flex flex-col">
+            {[...APP_NAV, ...APP_NAV_SECONDARY].map((item) => {
+              const isActive = isNavItemActive(pathname, item.href);
+              const Icon = item.icon;
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={cn(
+                      'flex min-h-[48px] items-center gap-3 rounded-lg px-3 font-display text-body font-bold transition-colors',
+                      isActive ? 'bg-brand-50 text-brand-700' : 'text-ink-800 hover:bg-ink-50',
+                    )}
+                  >
+                    <Icon size={18} aria-hidden className="shrink-0" />
+                    {item.label}
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
+          <Link
+            href="/declarer/perdu"
+            className={cn(buttonClasses({ variant: 'primary', block: true, size: 'sm' }), 'mt-2')}
+          >
+            Déclarer une perte
+          </Link>
         </nav>
-      ) : null}
+      </div>
     </header>
   );
 }

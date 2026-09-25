@@ -19,11 +19,9 @@ import {
   LayoutDashboard,
   LifeBuoy,
   Megaphone,
-  MessageCircle,
   Package,
   Search,
   User,
-  Users,
   Wallet,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -52,66 +50,70 @@ export const PUBLIC_NAV: readonly NavItem[] = [
 ];
 
 /* -------------------------------------------------------------------------- */
-/* Espace connecté — `/app/*` (Sprint 4)                                       */
+/* Espace connecté — `/app/*`                                                  */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Entrées principales de l'espace connecté.
+ *
+ * ⚠️ **« Rechercher un objet » n'y figure pas volontairement.** La recherche est
+ * l'action n°1 du produit : elle occupe la barre supérieure en permanence et le bouton
+ * principal du tableau de bord. Une entrée de menu supplémentaire serait une troisième
+ * copie du même lien — et un menu qui répète ce que l'écran d'accueil affiche déjà en
+ * plus grand n'aide personne à décider.
+ *
+ * De même, « Mon portefeuille » est libellé « Récompenses » : c'est la question que la
+ * personne se pose (« Combien ai-je gagné ? »), pas le nom de l'instrument bancaire.
+ */
 export const APP_NAV: readonly NavItem[] = [
   { href: '/app', label: 'Tableau de bord', icon: LayoutDashboard },
-  { href: '/rechercher', label: 'Rechercher un objet', icon: Search },
   { href: '/app/objets', label: 'Mes objets', icon: Package },
   { href: '/app/annonces', label: 'Mes annonces', icon: Megaphone },
-  { href: '/app/portefeuille', label: 'Mon portefeuille', icon: Wallet },
-  { href: '/app/transactions', label: 'Mes transactions', icon: ArrowLeftRight },
+  { href: '/app/portefeuille', label: 'Récompenses', icon: Wallet },
+  { href: '/app/transactions', label: 'Transactions', icon: ArrowLeftRight },
   { href: '/app/notifications', label: 'Notifications', icon: Bell },
-  { href: '/app/profil', label: 'Mon profil', icon: User },
-  { href: '/help', label: 'Aide & support', icon: LifeBuoy },
 ];
 
-/** Navigation du bas mobile — 5 entrées max. */
+/**
+ * Pied de la barre latérale : aide et profil.
+ *
+ * Séparés visuellement du reste. L'aide n'est pas une section du produit, c'est une
+ * sortie de secours — la mêler aux entrées de travail la rendrait difficile à trouver
+ * précisément au moment où on la cherche. Le profil, lui, est un réglage, pas une
+ * destination de travail.
+ */
+export const APP_NAV_SECONDARY: readonly NavItem[] = [
+  { href: '/help', label: 'Aide & support', icon: LifeBuoy },
+  { href: '/app/profil', label: 'Mon profil', icon: User },
+];
+
+/**
+ * Navigation du bas (mobile) — 5 entrées, les plus utilisées.
+ *
+ * Reflet de `APP_NAV` et non une liste indépendante : le mobile ne doit jamais proposer
+ * une navigation différente de celle du desktop, seulement une version à cinq entrées.
+ * Les écrans restants (Correspondances, Messages, Aide) restent accessibles via le menu
+ * de l'en-tête et via les liens contextuels du tableau de bord.
+ */
 export const APP_BOTTOM_NAV: readonly NavItem[] = [
   { href: '/app', label: 'Accueil', icon: Home },
-  { href: '/app/correspondances', label: 'Matches', icon: Users },
-  { href: '/app/messages', label: 'Messages', icon: MessageCircle },
   { href: '/app/objets', label: 'Objets', icon: Package },
+  { href: '/app/annonces', label: 'Annonces', icon: Megaphone },
+  { href: '/app/portefeuille', label: 'Récompenses', icon: Wallet },
   { href: '/app/profil', label: 'Profil', icon: User },
 ];
 
-/* -------------------------------------------------------------------------- */
-/* Tableau de bord — barre latérale (248 px)                                  */
-/* -------------------------------------------------------------------------- */
-
-/** @deprecated Chemins legacy — utiliser APP_NAV. */
-export const DASHBOARD_NAV: readonly NavItem[] = APP_NAV;
-
 /**
- * Séparée visuellement du reste : l'aide n'est pas une section du produit, c'est une
- * sortie de secours. La mêler aux autres entrées la rendrait difficile à trouver
- * précisément au moment où on la cherche.
- */
-export const DASHBOARD_SUPPORT_NAV: readonly NavItem[] = [
-  { href: '/dashboard/support', label: 'Aide & support', icon: LifeBuoy },
-];
-
-/* -------------------------------------------------------------------------- */
-/* Tableau de bord — navigation du bas, mobile                                */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Cinq entrées au maximum : au-delà, les cibles tactiles deviennent trop étroites pour
- * un usage à une main.
+ * Une entrée est active si elle est la route courante, ou un préfixe de celle-ci.
  *
- * ⚠️ Le portefeuille y figure obligatoirement. C'est l'écran qui motive le plus de
- * visites récurrentes — un trouveur y vérifie l'arrivée de sa récompense — et le
- * reléguer derrière un menu l'aurait rendu invisible sur le seul appareil que la
- * majorité du public cible utilise réellement.
+ * `/app` est traitée à part : sans cette exception, elle serait « active » partout, y
+ * compris sur `/app/objets`. Le reste du code compare les chaînes à la main, et c'est
+ * précisément là que naissent les surbrillances doubles.
  */
-export const DASHBOARD_BOTTOM_NAV: readonly NavItem[] = [
-  { href: '/dashboard', label: 'Accueil', icon: Home },
-  { href: '/dashboard/search', label: 'Rechercher', icon: Search },
-  { href: '/dashboard/objects', label: 'Objets', icon: Package },
-  { href: '/dashboard/wallet', label: 'Portefeuille', icon: Wallet },
-  { href: '/dashboard/profile', label: 'Profil', icon: User },
-];
+export function isNavItemActive(pathname: string, href: string): boolean {
+  if (href === '/app') return pathname === '/app';
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 /* -------------------------------------------------------------------------- */
 /* Pied de page public                                                        */

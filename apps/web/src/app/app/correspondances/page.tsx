@@ -116,7 +116,7 @@ export default function CorrespondancesPage() {
               <li key={m.id}>
                 <Link
                   href={`/app/correspondances/${m.id}`}
-                  className="flex h-full flex-col rounded-2xl border border-ink-200 bg-white p-5 shadow-xs transition hover:border-brand-300 hover:shadow-card"
+                  className="flex h-full flex-col rounded-2xl border border-ink-200 bg-white p-5 shadow-xs transition hover:border-brand-300 hover:shadow-200"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <span

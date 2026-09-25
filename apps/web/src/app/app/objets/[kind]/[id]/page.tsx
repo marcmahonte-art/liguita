@@ -16,23 +16,18 @@ import {
 } from '../../../../actions/owner-items';
 import { useAuth } from '../../../../../lib/auth/auth-context';
 import { formatLongDate } from '../../../../../lib/format';
+import { statusBadgeTone, statusLabel } from '../../../../../lib/item-status';
 
-const STATUS_LABELS: Record<string, string> = {
-  DECLARED: 'Déclaré',
-  SEARCHING: 'Recherche en cours',
-  MATCH_FOUND: 'Correspondance trouvée',
-  VERIFYING: 'Vérification',
-  PAID: 'Payé',
-  RETURNED: 'Restitué',
-  CLOSED: 'Clôturé',
-  EXPIRED: 'Expiré',
-  FOUND: 'Trouvé',
-  IN_INVENTORY: 'En inventaire',
-  MATCH_POSSIBLE: 'Correspondance possible',
-  OWNER_IDENTIFIED: 'Propriétaire identifié',
-  RETURN_IN_PROGRESS: 'Restitution en cours',
-  ARCHIVED: 'Archivé',
-};
+/**
+ * Libellé du statut — table partagée avec la liste et le tableau de bord.
+ *
+ * ⚠️ Trois copies de cette table ont coexisté dans l'espace connecté. Elles ne sont
+ * plus qu'une : un statut affiché différemment selon la page est un bug de
+ * compréhension, pas une variante de style.
+ */
+function statusBadge(status: string): string {
+  return statusLabel(status);
+}
 
 export default function OwnerObjectDetailPage() {
   const params = useParams<{ kind: string; id: string }>();
@@ -123,7 +118,7 @@ export default function OwnerObjectDetailPage() {
             Déclaré le {formatLongDate(item.created_at)}
           </p>
         </div>
-        <Badge tone="neutral">{STATUS_LABELS[item.status] ?? item.status}</Badge>
+        <Badge tone={statusBadgeTone(item.status)}>{statusBadge(item.status)}</Badge>
       </div>
 
       {item.kind === 'LOST' ? (

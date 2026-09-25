@@ -1,47 +1,109 @@
-﻿'use client';
+import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 
-import { buildWallet, MOCK_ITEMS, MOCK_NOTIFICATIONS, MOCK_STATS, MOCK_TRANSACTIONS } from '../../lib/mock-data';
+import { createClient } from '../../lib/supabase/server';
+import { getWallet } from '../actions/wallet';
+import { listMyNotifications } from '../actions/notifications';
+import { listMyOwnerItems } from '../actions/owner-items';
+import { listMyMatches } from '../actions/matches';
+import {
+  buildActivityFeed,
+  buildDashboardKpis,
+  selectAttentionNotifications,
+} from '../../lib/dashboard';
+import { finderRewardForCategory } from '../../lib/pricing-examples';
+import { DashboardHero } from '../../components/app/dashboard/DashboardHero';
+import { DashboardKpis } from '../../components/app/dashboard/DashboardKpis';
+import { RecentActivityFeed } from '../../components/app/dashboard/RecentActivityFeed';
+import { WalletSummaryBar } from '../../components/app/dashboard/WalletSummaryBar';
+import {
+  ActiveAnnouncementsPanel,
+  toActiveAnnouncements,
+} from '../../components/app/dashboard/ActiveAnnouncementsPanel';
+import { DashboardNotificationsPanel } from '../../components/app/dashboard/DashboardNotificationsPanel';
 
-import { DashboardQuickNav } from '../../components/app/dashboard/DashboardQuickNav';
-import { HeroBanner } from '../../components/app/dashboard/HeroBanner';
-import { LiguitaTagsBanner } from '../../components/app/dashboard/LiguitaTagsBanner';
-import { NotificationsWidget } from '../../components/app/dashboard/NotificationsWidget';
-import { RecentActivities } from '../../components/app/dashboard/RecentActivities';
-import { RecentTransactions } from '../../components/app/dashboard/RecentTransactions';
-import { StatsWidget } from '../../components/app/dashboard/StatsWidget';
-import { WalletWidget } from '../../components/app/dashboard/WalletWidget';
-
-const wallet = buildWallet(MOCK_TRANSACTIONS);
+export const metadata: Metadata = { title: 'Tableau de bord' };
 
 /**
- * Tableau de bord principal `/app`.
+ * Prénom affiché dans l'accueil.
  *
- * Les données affichées viennent de `mock-data.ts` jusqu'au branchement Supabase.
- * Le composant est marqué « use client » car il consomme le contexte d'auth
- * via HeroBanner → useAuth().
+ * `null` — et non une chaîne de repli — quand le compte n'a renseigné ni nom ni
+ * prénom : l'accueil affiche alors « Bonjour » seul, plutôt que « Bonjour, bonjour ».
  */
-export default function DashboardPage() {
-  return (
-    <div className="space-y-6">
-      {/* Ligne 1 — Hero + Portefeuille + Stats */}
-      <div className="grid gap-6 lg:grid-cols-[1fr_260px_220px]">
-        <HeroBanner />
-        <WalletWidget wallet={wallet} />
-        <StatsWidget stats={MOCK_STATS} />
-      </div>
+function firstNameOf(profile: {
+  display_name: string | null;
+  full_name: string | null;
+} | null): string | null {
+  const source = profile?.display_name ?? profile?.full_name ?? '';
+  const [first] = source.trim().split(/\s+/);
+  return first || null;
+}
 
-      {/* Ligne 2 — Activités récentes + Transactions + Notifications */}
-      <div className="grid gap-6 lg:grid-cols-[1fr_1fr_300px]">
-        <RecentActivities items={MOCK_ITEMS.slice(0, 4)} />
-        <RecentTransactions transactions={MOCK_TRANSACTIONS.slice(0, 5)} />
-        <div className="flex flex-col gap-6">
-          <NotificationsWidget notifications={MOCK_NOTIFICATIONS.slice(0, 4)} />
-          <LiguitaTagsBanner />
+/**
+ * Tableau de bord `/app` — « Que dois-je faire maintenant ? »
+ *
+ * Ordre de lecture, du plus général au plus urgent :
+ *   1. l'accueil et les deux actions (rechercher, déclarer un objet trouvé) ;
+ *   2. quatre chiffres, une seule fois, jamais répétés ailleurs ;
+ *   3. ce qui demande une action (annonces actives, notifications non lues) ;
+ *   4. l'historique récent, en un seul flux.
+ *
+ * Les données viennent de quatre appels indépendants, tous filtrés côté RLS. Chacun
+ * tolère l'échec : une base vide, un portefeuille absent ou une table indisponible
+ * doivent dégrader la page, jamais la casser.
+ */
+export default async function DashboardPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/connexion?redirect=/app');
+
+  const [profileResult, walletResult, itemsResult, matchesResult, notificationsResult] =
+    await Promise.all([
+      supabase
+        .from('profiles')
+        .select('display_name, full_name')
+        .eq('id', user.id)
+        .maybeSingle(),
+      getWallet(),
+      listMyOwnerItems(),
+      listMyMatches(),
+      listMyNotifications(),
+    ]);
+
+  const items = itemsResult.items;
+  const entries = walletResult.wallet.entries;
+  const matches = matchesResult.items;
+
+  const kpis = buildDashboardKpis({ items, entries, matches });
+  const events = buildActivityFeed({ items, entries, matches });
+  const announcements = toActiveAnnouncements(items, finderRewardForCategory);
+  const attention = selectAttentionNotifications(notificationsResult.items);
+
+  return (
+    <div className="flex flex-col gap-5">
+      <DashboardHero firstName={firstNameOf(profileResult.data)} />
+
+      <DashboardKpis kpis={kpis} />
+
+      {/* Colonne principale (8/12) — l'historique, qui est la plus longue.
+          Rail latéral (4/12) — ce qui demande une action aujourd'hui. */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+        <div className="flex flex-col gap-5 lg:col-span-8">
+          <RecentActivityFeed events={events} />
+          <WalletSummaryBar
+            available={walletResult.wallet.availableBalance}
+            pending={walletResult.wallet.pendingBalance}
+            currency={walletResult.wallet.currency}
+          />
+        </div>
+
+        <div className="flex flex-col gap-5 lg:col-span-4">
+          <DashboardNotificationsPanel notifications={attention} />
+          <ActiveAnnouncementsPanel announcements={announcements} />
         </div>
       </div>
-
-      {/* Ligne 3 — Navigation rapide */}
-      <DashboardQuickNav />
     </div>
   );
 }

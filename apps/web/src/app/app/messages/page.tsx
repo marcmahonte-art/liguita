@@ -86,7 +86,7 @@ export default function MessagesPage() {
               <li key={item.id}>
                 <Link
                   href={`/app/messages/${item.id}`}
-                  className="flex items-center gap-4 rounded-2xl border border-ink-200 bg-white p-4 transition hover:border-brand-300 hover:shadow-card"
+                  className="flex items-center gap-4 rounded-2xl border border-ink-200 bg-white p-4 transition hover:border-brand-300 hover:shadow-200"
                 >
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700">
                     <MessageCircle size={20} aria-hidden />

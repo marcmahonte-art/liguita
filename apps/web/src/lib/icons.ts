@@ -63,14 +63,16 @@ export const TONES = {
   /** Neutre — élément clôturé, sans enjeu. */
   neutral: 'bg-ink-100 text-ink-500',
   /**
-   * Violet — **réservé à la correspondance**, conformément aux specs §5.
+   * Correspondance — l'état « le moteur a trouvé un candidat plausible ».
    *
-   * C'est le seul usage de cette teinte dans l'application. Le violet n'appartient pas
-   * à la rampe du design system : il est déclaré ici sous forme littérale, faute de
-   * jeton dédié. Si un troisième usage apparaît un jour, il faudra créer le jeton dans
-   * `packages/ui/src/tokens.ts` plutôt que de multiplier les valeurs littérales.
+   * ⚠️ Historiquement `bg-violet-50 text-violet-700`. Ces deux classes **n'existaient
+   * pas** dans le preset Tailwind : la pastille de correspondance s'affichait donc sans
+   * fond ni couleur, indiscernable d'un texte ordinaire. Remplacées par la rampe
+   * `info` en aplat — le seul écart avec le ton `info` reste la saturation, ce qui
+   * conserve la distinction visuelle sans introduire une couleur hors palette.
+   * Contraste blanc sur `info-500` : 5,2:1, conforme AA.
    */
-  match: 'bg-violet-50 text-violet-700',
+  match: 'bg-info-500 text-white',
 } as const satisfies Record<string, ToneClass>;
 
 export type Tone = keyof typeof TONES;

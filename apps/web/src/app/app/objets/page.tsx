@@ -9,33 +9,22 @@ import { Badge, buttonClasses, EmptyState, Skeleton } from '@liguita/ui';
 
 import {
   listMyOwnerItems,
-  type OwnerItemKind,
   type OwnerItemListItem,
 } from '../../actions/owner-items';
 import { useAuth } from '../../../lib/auth/auth-context';
 import { formatShortDate } from '../../../lib/format';
+import { statusLabel } from '../../../lib/item-status';
 
-const STATUS_LABELS: Record<OwnerItemKind, Record<string, string>> = {
-  LOST: {
-    DECLARED: 'Déclaré',
-    SEARCHING: 'Recherche en cours',
-    MATCH_FOUND: 'Correspondance trouvée',
-    VERIFYING: 'Vérification',
-    PAID: 'Payé',
-    RETURNED: 'Restitué',
-    CLOSED: 'Clôturé',
-    EXPIRED: 'Expiré',
-  },
-  FOUND: {
-    FOUND: 'Trouvé',
-    IN_INVENTORY: 'En inventaire',
-    MATCH_POSSIBLE: 'Correspondance possible',
-    OWNER_IDENTIFIED: 'Propriétaire identifié',
-    RETURN_IN_PROGRESS: 'Restitution en cours',
-    RETURNED: 'Restitué',
-    ARCHIVED: 'Archivé',
-  },
-};
+/**
+ * Libellé du statut — table partagée avec le tableau de bord.
+ *
+ * ⚠️ Cette page et le tableau de bord affichent le même statut : deux tables de
+ * libellés significaient deux vocabulaires pour un même état, et le risque que l'un
+ * des deux mots change sans l'autre.
+ */
+function labelFor(item: OwnerItemListItem): string {
+  return statusLabel(item.status);
+}
 
 function getLocationLabel(item: OwnerItemListItem): string {
   const city = findCity(item.city_slug);
@@ -144,14 +133,14 @@ export default function MesObjetsPage() {
               <li key={`${item.kind}-${item.id}`}>
                 <Link
                   href={`/app/objets/${item.kind}/${item.id}`}
-                  className="flex h-full flex-col rounded-2xl border border-ink-200 bg-white p-5 shadow-xs transition hover:border-brand-300 hover:shadow-card"
+                  className="flex h-full flex-col rounded-2xl border border-ink-200 bg-white p-5 shadow-xs transition hover:border-brand-300 hover:shadow-200"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <Badge tone={item.kind === 'LOST' ? 'lost' : 'found'} dot>
                       {item.kind === 'LOST' ? 'Objet perdu' : 'Objet trouvé'}
                     </Badge>
                     <Badge tone="neutral">
-                      {STATUS_LABELS[item.kind][item.status] ?? item.status}
+                      {labelFor(item)}
                     </Badge>
                   </div>
                   <h2 className="mt-4 font-display text-body-lg font-bold text-ink-950">
