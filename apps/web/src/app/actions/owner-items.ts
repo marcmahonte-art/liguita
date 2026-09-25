@@ -20,6 +20,7 @@ export interface OwnerItemListItem {
   status: string;
   created_at: string;
   declared_value_xaf: number | null;
+  is_public: boolean | null;
 }
 
 export interface OwnerItemDetail extends OwnerItemListItem {
@@ -34,7 +35,7 @@ export interface OwnerItemDetailInput {
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const LOST_FIELDS =
-  'id, title, category_code, item_type_code, description, brand, color, city_slug, neighborhood_slug, place_label, occurred_at, status, declared_value_xaf, created_at, updated_at';
+  'id, title, category_code, item_type_code, description, brand, color, city_slug, neighborhood_slug, place_label, occurred_at, status, declared_value_xaf, is_public, created_at, updated_at';
 const FOUND_FIELDS =
   'id, title, category_code, item_type_code, description, brand, color, city_slug, neighborhood_slug, place_label, found_at, status, created_at, updated_at';
 
@@ -83,6 +84,7 @@ export async function listMyOwnerItems(): Promise<{ items: OwnerItemListItem[]; 
     kind: 'FOUND' as const,
     event_at: item.found_at,
     declared_value_xaf: null,
+    is_public: null,
   }));
 
   return {
@@ -137,6 +139,27 @@ export async function getMyOwnerItem(
       kind: 'FOUND',
       event_at: data.found_at,
       declared_value_xaf: null,
+      is_public: null,
     },
   };
+}
+
+export async function setMyLostItemPublication(
+  id: string,
+  isPublic: boolean,
+): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Non connecté' };
+  if (!validateId(id.trim())) return { ok: false, error: 'Objet introuvable.' };
+
+  const { error } = await supabase
+    .from('lost_items')
+    .update({ is_public: isPublic })
+    .eq('id', id.trim())
+    .eq('user_id', user.id);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
 }

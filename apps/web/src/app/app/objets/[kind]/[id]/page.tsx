@@ -8,8 +8,12 @@ import { useEffect, useState } from 'react';
 import { findCategory, findCity, findNeighborhood } from '@liguita/config';
 import { Alert, Badge, buttonClasses, Card, Skeleton } from '@liguita/ui';
 
-import { ItemPhotoGallery } from '../../../../../components/app/ItemPhotoGallery';
-import { getMyOwnerItem, type OwnerItemDetail } from '../../../../actions/owner-items';
+import { ItemPhotoUploader } from '../../../../../components/app/ItemPhotoUploader';
+import {
+  getMyOwnerItem,
+  setMyLostItemPublication,
+  type OwnerItemDetail,
+} from '../../../../actions/owner-items';
 import { useAuth } from '../../../../../lib/auth/auth-context';
 import { formatLongDate } from '../../../../../lib/format';
 
@@ -35,6 +39,7 @@ export default function OwnerObjectDetailPage() {
   const { user, isLoading: authLoading } = useAuth();
   const [item, setItem] = useState<OwnerItemDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSavingPublication, setIsSavingPublication] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -53,6 +58,18 @@ export default function OwnerObjectDetailPage() {
       cancelled = true;
     };
   }, [authLoading, params.id, params.kind, user]);
+
+  async function handlePublicationChange(isPublic: boolean) {
+    if (!item || item.kind !== 'LOST') return;
+    setIsSavingPublication(true);
+    const result = await setMyLostItemPublication(item.id, isPublic);
+    if (result.ok) {
+      setItem({ ...item, is_public: isPublic });
+    } else {
+      setError(result.error ?? 'La publication n’a pas pu être modifiée.');
+    }
+    setIsSavingPublication(false);
+  }
 
   if (isLoading) {
     return (
@@ -108,6 +125,25 @@ export default function OwnerObjectDetailPage() {
         </div>
         <Badge tone="neutral">{STATUS_LABELS[item.status] ?? item.status}</Badge>
       </div>
+
+      {item.kind === 'LOST' ? (
+        <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-brand-100 bg-brand-50/50 p-4 text-caption text-ink-700">
+          <input
+            type="checkbox"
+            checked={item.is_public === true}
+            onChange={(event) => void handlePublicationChange(event.target.checked)}
+            disabled={isSavingPublication}
+            className="mt-0.5 size-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500"
+          />
+          <span>
+            <strong className="block text-ink-900">
+              {item.is_public ? 'Cet objet est public' : 'Publier cet objet'}
+            </strong>
+            Sa photo, son titre, sa ville et sa date seront visibles sur la page publique des
+            objets perdus. Vos coordonnées restent privées.
+          </span>
+        </label>
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
@@ -167,7 +203,7 @@ export default function OwnerObjectDetailPage() {
         </Card>
       </div>
 
-      <ItemPhotoGallery itemId={item.id} itemKind={item.kind} />
+      <ItemPhotoUploader itemId={item.id} itemKind={item.kind} />
     </div>
   );
 }
