@@ -7,6 +7,7 @@ import { useEffect, useState, useTransition } from 'react';
 
 import { Alert, Badge, buttonClasses, Card, Skeleton } from '@liguita/ui';
 
+import { ItemPhotoUploader } from '../../../../components/app/ItemPhotoUploader';
 import {
   generateBusinessQr,
   getBusinessInventoryItem,
@@ -114,6 +115,12 @@ export default function BusinessObjectDetailPage() {
           )}
         </Card>
       </div>
+
+      <ItemPhotoUploader
+        itemId={item.id}
+        itemKind="FOUND"
+        readOnly={!item.canManagePhotos}
+      />
     </div>
   );
 }

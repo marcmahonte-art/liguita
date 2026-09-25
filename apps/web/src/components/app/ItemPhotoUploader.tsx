@@ -17,9 +17,10 @@ type ItemKind = 'LOST' | 'FOUND';
 interface ItemPhotoUploaderProps {
   itemId: string;
   itemKind: ItemKind;
+  readOnly?: boolean;
 }
 
-export function ItemPhotoUploader({ itemId, itemKind }: ItemPhotoUploaderProps) {
+export function ItemPhotoUploader({ itemId, itemKind, readOnly = false }: ItemPhotoUploaderProps) {
   const [photos, setPhotos] = useState<ItemPhoto[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -92,12 +93,17 @@ export function ItemPhotoUploader({ itemId, itemKind }: ItemPhotoUploaderProps) 
     <section className="mt-6 rounded-2xl border border-ink-200 bg-ink-50/50 p-4 text-left">
       <div className="flex items-center gap-2">
         <ImagePlus size={18} className="text-brand-700" aria-hidden />
-        <h2 className="font-display text-body-lg font-bold text-ink-950">Ajouter des photos</h2>
+        <h2 className="font-display text-body-lg font-bold text-ink-950">
+          {readOnly ? 'Photos de l’objet' : 'Ajouter des photos'}
+        </h2>
       </div>
       <p className="mt-1 text-caption text-ink-600">
-        JPEG, PNG, WebP ou AVIF · 5 Mo maximum par photo · 4 photos maximum.
+        {readOnly
+          ? 'Visibles uniquement par les personnes autorisées sur cet objet.'
+          : 'JPEG, PNG, WebP ou AVIF · 5 Mo maximum par photo · 4 photos maximum.'}
       </p>
-      <label className={`mt-4 ${buttonClasses({ variant: 'outline', block: true, className: 'cursor-pointer' })}`}>
+      {!readOnly ? (
+        <label className={`mt-4 ${buttonClasses({ variant: 'outline', block: true, className: 'cursor-pointer' })}`}>
         <input
           type="file"
           accept="image/jpeg,image/png,image/webp,image/avif"
@@ -111,20 +117,23 @@ export function ItemPhotoUploader({ itemId, itemKind }: ItemPhotoUploaderProps) 
           {isUploading ? 'Téléversement…' : 'Choisir des photos'}
         </span>
       </label>
+      ) : null}
       {error ? <p role="alert" className="mt-3 text-caption text-danger-700">{error}</p> : null}
       {photos.length > 0 ? (
         <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {photos.map((photo) => (
             <li key={photo.id} className="relative aspect-square overflow-hidden rounded-xl border border-ink-200 bg-white">
               <img src={photo.signedUrl} alt="Photo de l’objet" className="h-full w-full object-cover" />
-              <button
-                type="button"
-                onClick={() => void handleDelete(photo.id)}
-                className="absolute right-2 top-2 inline-flex size-8 items-center justify-center rounded-full bg-white/90 text-danger-700 shadow-sm"
-                aria-label="Supprimer la photo"
-              >
-                <Trash2 size={14} />
-              </button>
+              {!readOnly ? (
+                <button
+                  type="button"
+                  onClick={() => void handleDelete(photo.id)}
+                  className="absolute right-2 top-2 inline-flex size-8 items-center justify-center rounded-full bg-white/90 text-danger-700 shadow-sm"
+                  aria-label="Supprimer la photo"
+                >
+                  <Trash2 size={14} />
+                </button>
+              ) : null}
             </li>
           ))}
         </ul>

@@ -60,45 +60,24 @@ async function verifyItemOwnership(
   supabase: SupabaseClient,
   itemKind: 'LOST' | 'FOUND',
   itemId: string,
-  userId: string,
 ): Promise<boolean> {
-  if (itemKind === 'LOST') {
-    const { data, error } = await supabase
-      .from('lost_items')
-      .select('id')
-      .eq('id', itemId)
-      .eq('user_id', userId)
-      .maybeSingle();
-    return !error && Boolean(data);
-  }
-
-  const { data, error } = await supabase
-    .from('found_items')
-    .select('id')
-    .eq('id', itemId)
-    .eq('finder_id', userId)
-    .maybeSingle();
-  return !error && Boolean(data);
+  const { data, error } = await supabase.rpc('can_manage_item_photo', {
+    p_item_kind: itemKind,
+    p_item_id: itemId,
+  });
+  return !error && data === true;
 }
 
 async function verifyItemAccess(
   supabase: SupabaseClient,
   itemKind: 'LOST' | 'FOUND',
   itemId: string,
-  userId: string,
 ): Promise<boolean> {
-  if (await verifyItemOwnership(supabase, itemKind, itemId, userId)) {
-    return true;
-  }
-
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('app_role')
-    .eq('id', userId)
-    .in('app_role', ['ADMIN', 'MODERATOR'])
-    .maybeSingle();
-
-  return !error && Boolean(data);
+  const { data, error } = await supabase.rpc('can_access_item_photo', {
+    p_item_kind: itemKind,
+    p_item_id: itemId,
+  });
+  return !error && data === true;
 }
 
 export async function uploadItemPhoto(formData: FormData): Promise<UploadItemPhotoResult> {
@@ -135,7 +114,7 @@ export async function uploadItemPhoto(formData: FormData): Promise<UploadItemPho
     return { success: false, error: 'La photo doit peser au maximum 5 Mo.' };
   }
 
-  if (!(await verifyItemOwnership(supabase, itemKind, itemId, user.id))) {
+  if (!(await verifyItemOwnership(supabase, itemKind, itemId))) {
     return { success: false, error: 'Vous ne pouvez pas modifier cet objet.' };
   }
 
@@ -240,7 +219,7 @@ export async function deleteItemPhoto(formData: FormData): Promise<DeleteItemPho
     return { success: false, error: 'La photo est invalide.' };
   }
 
-  if (!(await verifyItemOwnership(supabase, photo.item_kind, photo.item_id, user.id))) {
+  if (!(await verifyItemOwnership(supabase, photo.item_kind, photo.item_id))) {
     return { success: false, error: 'Vous ne pouvez pas supprimer cette photo.' };
   }
 
@@ -297,7 +276,7 @@ export async function listItemPhotos(input: ListItemPhotosInput): Promise<ListIt
     return { success: false, error: 'L’identifiant de l’objet est invalide.' };
   }
 
-  if (!(await verifyItemAccess(supabase, itemKind, itemId, user.id))) {
+  if (!(await verifyItemAccess(supabase, itemKind, itemId))) {
     return { success: false, error: 'Vous ne pouvez pas consulter les photos de cet objet.' };
   }
 

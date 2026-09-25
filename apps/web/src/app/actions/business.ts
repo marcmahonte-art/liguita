@@ -60,6 +60,7 @@ export interface BusinessInventoryItem {
   internalRef: string | null;
   internalNotes: string | null;
   isPublic: boolean;
+  canManagePhotos: boolean;
   qrCode: string | null;
   createdAt: string;
 }
@@ -282,8 +283,9 @@ export async function listBusinessInventory(
       locker: item.locker,
       internalRef: item.internal_ref,
       internalNotes: item.internal_notes,
-      isPublic: item.is_public,
-      qrCode: item.qr_code,
+       isPublic: item.is_public,
+       canManagePhotos: ['OWNER', 'ADMIN', 'MANAGER'].includes(membership.role),
+       qrCode: item.qr_code,
       createdAt: item.created_at,
     })),
   };
@@ -352,8 +354,9 @@ export async function getBusinessInventoryItem(
       locker: row.locker,
       internalRef: row.internal_ref,
       internalNotes: row.internal_notes,
-      isPublic: row.is_public,
-      qrCode: row.qr_code,
+       isPublic: row.is_public,
+       canManagePhotos: ['OWNER', 'ADMIN', 'MANAGER'].includes(membership.role),
+       qrCode: row.qr_code,
       createdAt: row.created_at,
     },
   };
