@@ -208,7 +208,7 @@ export async function getVerificationState(matchId: string): Promise<{
       objectTitle: lost?.title ?? found?.title ?? 'Objet',
       isFinder,
       hasSecrets: Boolean(secrets?.answers && Object.keys(secrets.answers).length > 0),
-      canSubmit: Boolean(isOwner) && !locked && status !== 'APPROVED',
+       canSubmit: Boolean(isOwner) && !locked && status !== 'APPROVED' && status !== 'UNDER_REVIEW',
       outcome:
         status === 'APPROVED' || status === 'UNDER_REVIEW' || status === 'REJECTED' ? status : null,
     },
@@ -268,6 +268,9 @@ export async function submitVerificationAnswers(
   if (existingClaim?.status === 'APPROVED') {
     return { ok: false, error: 'Cette vérification est déjà approuvée.' };
   }
+  if (existingClaim?.status === 'UNDER_REVIEW') {
+    return { ok: false, error: 'Cette vérification est déjà en revue.' };
+  }
   if (attemptCount >= VERIFICATION_MAX_ATTEMPTS) {
     return {
       ok: false,
@@ -324,14 +327,50 @@ export async function submitVerificationAnswers(
       : decision === 'UNDER_REVIEW'
         ? 'UNDER_REVIEW'
         : 'REJECTED';
+  const { data: dbQuestions } = await service
+    .from('verification_questions')
+    .select('id, code, weight')
+    .in(
+      'code',
+      questions.map((q) => q.id),
+    );
+
+  const idByCode = new Map((dbQuestions ?? []).map((row) => [row.code, row.id as string]));
+  const answerRows = answers
+    .map((a) => {
+      const questionId = idByCode.get(a.questionId);
+      if (!questionId) return null;
+      const question = questions.find((q) => q.id === a.questionId);
+      const reference = expected[a.questionId];
+      const isCorrect =
+        hasSecrets && reference !== undefined ? normalize(reference) === normalize(a.value) : null;
+      return {
+        question_id: questionId,
+        answer: a.value,
+        is_correct: isCorrect,
+        points_awarded: isCorrect && question ? question.weight : 0,
+      };
+    })
+    .filter(Boolean) as Array<{
+    question_id: string;
+    answer: string;
+    is_correct: boolean | null;
+    points_awarded: number;
+  }>;
+
+  if (answerRows.length !== answers.length) {
+    return { ok: false, error: 'Une question de vérification est introuvable.' };
+  }
+
   const { data: decisionRow, error: decisionError } = await service.rpc(
-    'apply_verification_decision',
+    'apply_verification_submission',
     {
       p_match_id: matchId,
       p_claimant_id: user.id,
       p_status: claimStatus,
       p_score: scorePercent,
       p_increment_attempt: decision === 'REJECTED',
+      p_answers: answerRows,
     },
   );
   if (decisionError || !decisionRow?.[0]) {
@@ -354,46 +393,6 @@ export async function submitVerificationAnswers(
       attemptsRemaining: 0,
       error: 'Correspondance verrouillée après 3 tentatives.',
     };
-  }
-
-  await service.from('verification_answers').delete().eq('claim_id', claimId);
-
-  const { data: dbQuestions } = await service
-    .from('verification_questions')
-    .select('id, code, weight')
-    .in(
-      'code',
-      questions.map((q) => q.id),
-    );
-
-  const idByCode = new Map((dbQuestions ?? []).map((row) => [row.code, row.id as string]));
-  const answerRows = answers
-    .map((a) => {
-      const questionId = idByCode.get(a.questionId);
-      if (!questionId) return null;
-      const question = questions.find((q) => q.id === a.questionId);
-      const reference = expected[a.questionId];
-      const isCorrect =
-        hasSecrets && reference !== undefined ? normalize(reference) === normalize(a.value) : null;
-      return {
-        claim_id: claimId!,
-        question_id: questionId,
-        answer: a.value,
-        is_correct: isCorrect,
-        points_awarded: isCorrect && question ? question.weight : 0,
-      };
-    })
-    .filter(Boolean) as Array<{
-    claim_id: string;
-    question_id: string;
-    answer: string;
-    is_correct: boolean | null;
-    points_awarded: number;
-  }>;
-
-  if (answerRows.length > 0) {
-    const { error: answersError } = await service.from('verification_answers').insert(answerRows);
-    if (answersError) return { ok: false, error: answersError.message };
   }
 
   // Effets de bord métier
