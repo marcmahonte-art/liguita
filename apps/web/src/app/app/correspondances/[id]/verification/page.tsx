@@ -125,7 +125,7 @@ export default function VerificationPage() {
         setResult({
           outcome: 'UNDER_REVIEW',
           tone: 'info',
-          message: 'Réponses enregistrées. Le trouveur ou un modérateur va les examiner.',
+           message: 'Réponses enregistrées. Un modérateur va les examiner.',
         });
       } else {
         const remaining = res.attemptsRemaining ?? 0;
@@ -255,7 +255,7 @@ export default function VerificationPage() {
 
       {state.status === 'UNDER_REVIEW' && !state.isFinder ? (
         <Alert tone="info" title="Vérification en cours">
-          Vos réponses sont en attente de revue par le trouveur ou un modérateur.
+           Vos réponses sont en attente de revue par un modérateur.
         </Alert>
       ) : null}
 
