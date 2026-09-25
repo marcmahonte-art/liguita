@@ -232,27 +232,49 @@ export async function getPaymentState(matchId: string): Promise<{
   };
 }
 
-function providerFor(code: 'CASH' | 'AIRTEL' | 'MOOV'): PaymentProvider {
-  if (code === 'AIRTEL') {
-    const isProduction = (process.env.LIGUITA_AIRTEL_ENV ?? process.env.AIRTEL_TD_ENV) === 'prod';
-    const endpoint =
+function getAirtelConfig() {
+  const isProduction = (process.env.LIGUITA_AIRTEL_ENV ?? process.env.AIRTEL_TD_ENV) === 'prod';
+  return {
+    endpoint:
       process.env.AIRTEL_BASE_URL ??
       process.env.AIRTEL_TD_BASE_URL ??
       (isProduction ? process.env.AIRTEL_TD_PROD_BASE_URL : process.env.AIRTEL_TD_UAT_BASE_URL) ??
       process.env.AIRTEL_API_BASE_URL ??
-      '';
-    const clientId = isProduction
-      ? process.env.AIRTEL_TD_PROD_CLIENT_ID ?? process.env.AIRTEL_TD_CLIENT_ID
-      : process.env.AIRTEL_TD_UAT_CLIENT_ID ?? process.env.AIRTEL_TD_CLIENT_ID;
-    const clientSecret = isProduction
-      ? process.env.AIRTEL_TD_PROD_CLIENT_SECRET ?? process.env.AIRTEL_TD_CLIENT_SECRET
-      : process.env.AIRTEL_TD_UAT_CLIENT_SECRET ?? process.env.AIRTEL_TD_CLIENT_SECRET;
+      '',
+    clientId: isProduction
+      ? (process.env.AIRTEL_TD_PROD_CLIENT_ID ?? process.env.AIRTEL_TD_CLIENT_ID)
+      : (process.env.AIRTEL_TD_UAT_CLIENT_ID ?? process.env.AIRTEL_TD_CLIENT_ID),
+    clientSecret: isProduction
+      ? (process.env.AIRTEL_TD_PROD_CLIENT_SECRET ?? process.env.AIRTEL_TD_CLIENT_SECRET)
+      : (process.env.AIRTEL_TD_UAT_CLIENT_SECRET ?? process.env.AIRTEL_TD_CLIENT_SECRET),
+    secret: process.env.AIRTEL_TD_HMAC_PRIVATE_KEY ?? '',
+    merchantCode: process.env.AIRTEL_MERCHANT_CODE,
+  };
+}
+
+function isAirtelConfigured(): boolean {
+  const config = getAirtelConfig();
+  return Boolean(
+    config.endpoint &&
+    config.clientId &&
+    config.clientSecret &&
+    config.secret &&
+    config.merchantCode,
+  );
+}
+
+function providerFor(code: 'CASH' | 'AIRTEL' | 'MOOV'): PaymentProvider {
+  if (code === 'AIRTEL') {
+    const config = getAirtelConfig();
+    if (!isAirtelConfigured()) {
+      throw new Error('Airtel Money UAT n’est pas configuré.');
+    }
     return new AirtelMoneyProvider({
-      secret: process.env.AIRTEL_TD_HMAC_PRIVATE_KEY ?? '',
-      endpoint,
-      clientId: clientId ?? process.env.AIRTEL_CLIENT_ID ?? '',
-      clientSecret: clientSecret ?? process.env.AIRTEL_CLIENT_SECRET ?? '',
-      merchantCode: process.env.AIRTEL_MERCHANT_CODE,
+      secret: config.secret,
+      endpoint: config.endpoint,
+      clientId: config.clientId ?? process.env.AIRTEL_CLIENT_ID ?? '',
+      clientSecret: config.clientSecret ?? process.env.AIRTEL_CLIENT_SECRET ?? '',
+      merchantCode: config.merchantCode,
     });
   }
 
@@ -276,6 +298,9 @@ export async function initiatePayment(
   if (!user) return { ok: false, error: 'Non connecté' };
   if (process.env.PAYMENT_CASH_ENABLED !== 'true' && providerCode === 'CASH') {
     return { ok: false, error: 'Le paiement espèces n’est pas activé.' };
+  }
+  if (providerCode === 'AIRTEL' && !isAirtelConfigured()) {
+    return { ok: false, error: 'Airtel Money UAT n’est pas configuré.' };
   }
   const service = tryCreateServiceClient();
   if (!service) return { ok: false, error: 'Service indisponible.' };
