@@ -20,6 +20,16 @@ export interface SubmittedAnswer {
   readonly value: string;
 }
 
+const EVIDENCE_MAX_BYTES = 5 * 1024 * 1024;
+const EVIDENCE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/avif']);
+const EVIDENCE_EXTENSIONS: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/avif': 'avif',
+};
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export interface VerificationQuestionView {
   readonly id: string;
   readonly promptFr: string;
@@ -148,8 +158,7 @@ export async function getVerificationState(matchId: string): Promise<{
   const questions = questionsForCode(categoryMeta.categoryCode);
   const category = findCategory(categoryMeta.categoryCode);
   const rootLabel =
-    (category?.parentId ? findCategory(category.parentId)?.labelFr : category?.labelFr) ??
-    'Objet';
+    (category?.parentId ? findCategory(category.parentId)?.labelFr : category?.labelFr) ?? 'Objet';
 
   const { data: lost } = await reader
     .from('lost_items')
@@ -193,16 +202,14 @@ export async function getVerificationState(matchId: string): Promise<{
       attemptCount,
       attemptsRemaining: Math.max(0, VERIFICATION_MAX_ATTEMPTS - attemptCount),
       locked,
-       questions: toView(questions),
-       categoryLabel: rootLabel,
-       objectTitle: lost?.title ?? found?.title ?? 'Objet',
-       isFinder,
+      questions: toView(questions),
+      categoryLabel: rootLabel,
+      objectTitle: lost?.title ?? found?.title ?? 'Objet',
+      isFinder,
       hasSecrets: Boolean(secrets?.answers && Object.keys(secrets.answers).length > 0),
       canSubmit: Boolean(isOwner) && !locked && status !== 'APPROVED',
       outcome:
-        status === 'APPROVED' || status === 'UNDER_REVIEW' || status === 'REJECTED'
-          ? status
-          : null,
+        status === 'APPROVED' || status === 'UNDER_REVIEW' || status === 'REJECTED' ? status : null,
     },
   };
 }
@@ -311,7 +318,11 @@ export async function submitVerificationAnswers(
   }
 
   const claimStatus =
-    decision === 'APPROVED' ? 'APPROVED' : decision === 'UNDER_REVIEW' ? 'UNDER_REVIEW' : 'REJECTED';
+    decision === 'APPROVED'
+      ? 'APPROVED'
+      : decision === 'UNDER_REVIEW'
+        ? 'UNDER_REVIEW'
+        : 'REJECTED';
   const { data: decisionRow, error: decisionError } = await service.rpc(
     'apply_verification_decision',
     {
@@ -362,9 +373,7 @@ export async function submitVerificationAnswers(
       const question = questions.find((q) => q.id === a.questionId);
       const reference = expected[a.questionId];
       const isCorrect =
-        hasSecrets && reference !== undefined
-          ? normalize(reference) === normalize(a.value)
-          : null;
+        hasSecrets && reference !== undefined ? normalize(reference) === normalize(a.value) : null;
       return {
         claim_id: claimId!,
         question_id: questionId,
@@ -394,7 +403,13 @@ export async function submitVerificationAnswers(
       .update({ status: 'VERIFYING' })
       .eq('id', match.lost_item_id)
       .in('status', ['MATCH_FOUND', 'DECLARED', 'SEARCHING']);
-    await notify(service, lost.user_id, 'VERIFICATION_APPROVED', 'Vérification approuvée', 'Vos réponses confirment la propriété. Vous pouvez passer au devis.');
+    await notify(
+      service,
+      lost.user_id,
+      'VERIFICATION_APPROVED',
+      'Vérification approuvée',
+      'Vos réponses confirment la propriété. Vous pouvez passer au devis.',
+    );
   } else if (decision === 'REJECTED') {
     const lockedNow = attemptsUsed >= VERIFICATION_MAX_ATTEMPTS;
     if (lockedNow) {
@@ -411,12 +426,30 @@ export async function submitVerificationAnswers(
         risk_score: 100,
         status: 'OPEN',
       });
-      await notify(service, user.id, 'VERIFICATION_LOCKED', 'Correspondance verrouillée', '3 tentatives de vérification ont échoué. Une enquête anti-fraude a été ouverte.');
+      await notify(
+        service,
+        user.id,
+        'VERIFICATION_LOCKED',
+        'Correspondance verrouillée',
+        '3 tentatives de vérification ont échoué. Une enquête anti-fraude a été ouverte.',
+      );
     } else {
-      await notify(service, user.id, 'VERIFICATION_REJECTED', 'Réponses non validées', `Tentative ${attemptsUsed} sur ${VERIFICATION_MAX_ATTEMPTS}. La bonne réponse n'est jamais révélée.`);
+      await notify(
+        service,
+        user.id,
+        'VERIFICATION_REJECTED',
+        'Réponses non validées',
+        `Tentative ${attemptsUsed} sur ${VERIFICATION_MAX_ATTEMPTS}. La bonne réponse n'est jamais révélée.`,
+      );
     }
   } else {
-    await notify(service, user.id, 'VERIFICATION_REVIEW', 'Vérification en cours', 'Le trouveur ou un modérateur va examiner vos réponses.');
+    await notify(
+      service,
+      user.id,
+      'VERIFICATION_REVIEW',
+      'Vérification en cours',
+      'Le trouveur ou un modérateur va examiner vos réponses.',
+    );
   }
 
   revalidatePath(`/app/correspondances/${matchId}`);
@@ -431,6 +464,98 @@ export async function submitVerificationAnswers(
     attemptsRemaining,
     locked: attemptsUsed >= VERIFICATION_MAX_ATTEMPTS,
   };
+}
+
+export interface EvidenceUploadResult {
+  ok: boolean;
+  signedUrl?: string;
+  error?: string;
+}
+
+export async function uploadVerificationEvidence(
+  formData: FormData,
+): Promise<EvidenceUploadResult> {
+  const { supabase, user } = await requireUser();
+  if (!user) return { ok: false, error: 'Non connecté' };
+
+  const matchId = String(formData.get('matchId') ?? '').trim();
+  const questionCode = String(formData.get('questionCode') ?? '').trim();
+  const fileValue = formData.get('evidence');
+  const file = fileValue instanceof File ? fileValue : null;
+  if (!UUID_PATTERN.test(matchId) || !questionCode || !file) {
+    return { ok: false, error: 'Preuve invalide.' };
+  }
+  if (!EVIDENCE_TYPES.has(file.type) || file.size <= 0 || file.size > EVIDENCE_MAX_BYTES) {
+    return { ok: false, error: 'Photo invalide ou supérieure à 5 Mo.' };
+  }
+
+  const service = tryCreateServiceClient();
+  if (!service) return { ok: false, error: 'Service indisponible.' };
+
+  const { data: match } = await service
+    .from('matches')
+    .select('lost_item_id')
+    .eq('id', matchId)
+    .maybeSingle();
+  if (!match) return { ok: false, error: 'Correspondance introuvable.' };
+
+  const { data: lost } = await service
+    .from('lost_items')
+    .select('user_id')
+    .eq('id', match.lost_item_id)
+    .maybeSingle();
+  if (!lost || lost.user_id !== user.id) {
+    return { ok: false, error: 'Seul le propriétaire peut ajouter une preuve.' };
+  }
+
+  const { data: claim } = await service
+    .from('claims')
+    .select('id, status')
+    .eq('match_id', matchId)
+    .eq('claimant_id', user.id)
+    .maybeSingle();
+  if (!claim || claim.status !== 'UNDER_REVIEW') {
+    return { ok: false, error: 'La preuve peut être ajoutée uniquement après une revue.' };
+  }
+
+  const { data: question } = await service
+    .from('verification_questions')
+    .select('id')
+    .eq('code', questionCode)
+    .maybeSingle();
+  if (!question) return { ok: false, error: 'Question invalide.' };
+
+  const { data: answer } = await service
+    .from('verification_answers')
+    .select('id, answer_photo')
+    .eq('claim_id', claim.id)
+    .eq('question_id', question.id)
+    .maybeSingle();
+  if (!answer) return { ok: false, error: 'Réponse introuvable.' };
+
+  const path = `VERIFICATION/${answer.id}/${crypto.randomUUID()}.${EVIDENCE_EXTENSIONS[file.type]}`;
+  const { error: uploadError } = await supabase.storage
+    .from('verification-evidence')
+    .upload(path, file, { contentType: file.type, upsert: false });
+  if (uploadError) return { ok: false, error: uploadError.message };
+
+  const { error: updateError } = await service
+    .from('verification_answers')
+    .update({ answer_photo: path })
+    .eq('id', answer.id);
+  if (updateError) {
+    await service.storage.from('verification-evidence').remove([path]);
+    return { ok: false, error: updateError.message };
+  }
+
+  if (answer.answer_photo) {
+    await service.storage.from('verification-evidence').remove([answer.answer_photo]);
+  }
+
+  const { data: signed } = await service.storage
+    .from('verification-evidence')
+    .createSignedUrl(path, 60);
+  return { ok: true, signedUrl: signed?.signedUrl };
 }
 
 function normalize(value: string): string {
@@ -563,7 +688,10 @@ export async function listClaimsForReview(): Promise<{
 
     const questionIds = (answers ?? []).map((a) => a.question_id);
     const { data: questions } = questionIds.length
-      ? await service.from('verification_questions').select('id, code, prompt_fr').in('id', questionIds)
+      ? await service
+          .from('verification_questions')
+          .select('id, code, prompt_fr')
+          .in('id', questionIds)
       : { data: [] as Array<{ id: string; code: string; prompt_fr: string }> };
     const qById = new Map((questions ?? []).map((q) => [q.id, q]));
 
@@ -614,7 +742,7 @@ export async function reviewClaim(
     .maybeSingle();
   if (!claim) return { ok: false, error: 'Demande introuvable' };
   if (claim.status !== 'UNDER_REVIEW' && claim.status !== 'REJECTED') {
-    return { ok: false, error: 'Cette demande n\'est pas en revue.' };
+    return { ok: false, error: "Cette demande n'est pas en revue." };
   }
 
   if (decision === 'APPROVED') {
@@ -642,7 +770,13 @@ export async function reviewClaim(
         .eq('id', match.lost_item_id)
         .in('status', ['MATCH_FOUND', 'DECLARED', 'SEARCHING']);
     }
-    await notify(service, claim.claimant_id, 'VERIFICATION_APPROVED', 'Vérification approuvée', 'Un modérateur a confirmé votre propriété.');
+    await notify(
+      service,
+      claim.claimant_id,
+      'VERIFICATION_APPROVED',
+      'Vérification approuvée',
+      'Un modérateur a confirmé votre propriété.',
+    );
   } else {
     const attempts = claim.attempt_count + 1;
     const locked = attempts >= VERIFICATION_MAX_ATTEMPTS;
@@ -667,9 +801,21 @@ export async function reviewClaim(
         risk_score: 100,
         status: 'OPEN',
       });
-      await notify(service, claim.claimant_id, 'VERIFICATION_LOCKED', 'Correspondance verrouillée', '3 tentatives ont échoué. Un dossier anti-fraude a été ouvert.');
+      await notify(
+        service,
+        claim.claimant_id,
+        'VERIFICATION_LOCKED',
+        'Correspondance verrouillée',
+        '3 tentatives ont échoué. Un dossier anti-fraude a été ouvert.',
+      );
     } else {
-      await notify(service, claim.claimant_id, 'VERIFICATION_REJECTED', 'Réponses non validées', `Tentative ${attempts} sur ${VERIFICATION_MAX_ATTEMPTS}.`);
+      await notify(
+        service,
+        claim.claimant_id,
+        'VERIFICATION_REJECTED',
+        'Réponses non validées',
+        `Tentative ${attempts} sur ${VERIFICATION_MAX_ATTEMPTS}.`,
+      );
     }
   }
 

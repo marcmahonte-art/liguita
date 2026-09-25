@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
 
+import { VerificationEvidenceUploader } from '../../../../../components/app/VerificationEvidenceUploader';
 import { Alert, buttonClasses, Input, Select, Skeleton } from '@liguita/ui';
 
 import {
@@ -145,7 +146,7 @@ export default function VerificationPage() {
   function handleSaveSecrets() {
     startTransition(async () => {
       const res = await saveFoundSecrets(matchId, secrets);
-      if (!res.ok) setError(res.error ?? "Enregistrement impossible.");
+      if (!res.ok) setError(res.error ?? 'Enregistrement impossible.');
       else {
         setError(null);
         setResult({
@@ -170,7 +171,10 @@ export default function VerificationPage() {
   if (!state) {
     return (
       <div className="space-y-4">
-        <Link href={`/app/correspondances/${matchId}`} className={buttonClasses({ variant: 'ghost', size: 'sm' })}>
+        <Link
+          href={`/app/correspondances/${matchId}`}
+          className={buttonClasses({ variant: 'ghost', size: 'sm' })}
+        >
           <ArrowLeft size={16} /> Retour
         </Link>
         <Alert tone="danger" title={error ?? 'Erreur'} />
@@ -180,7 +184,10 @@ export default function VerificationPage() {
 
   return (
     <div className="space-y-6">
-      <Link href={`/app/correspondances/${matchId}`} className={buttonClasses({ variant: 'ghost', size: 'sm' })}>
+      <Link
+        href={`/app/correspondances/${matchId}`}
+        className={buttonClasses({ variant: 'ghost', size: 'sm' })}
+      >
         <ArrowLeft size={16} /> Correspondance
       </Link>
 
@@ -189,31 +196,50 @@ export default function VerificationPage() {
           Vérification de propriété
         </h1>
         <p className="mt-1 text-body text-ink-600">
-          Pour vous mettre en relation avec la personne qui a trouvé cet objet ({state.objectTitle}),
-          répondez à quelques questions sur sa catégorie « {state.categoryLabel} ». Ces réponses ne
-          sont pas publiques.
+          Pour vous mettre en relation avec la personne qui a trouvé cet objet ({state.objectTitle}
+          ), répondez à quelques questions sur sa catégorie « {state.categoryLabel} ». Ces réponses
+          ne sont pas publiques.
         </p>
       </div>
 
       {result ? (
         <Alert tone={result.tone} title={result.message}>
           {result.outcome === 'APPROVED' ? (
-              <Link
-                href={`/app/correspondances/${matchId}/paiement`}
-                className={buttonClasses({ variant: 'primary', size: 'sm' })}
-              >
-                Continuer vers le paiement
-              </Link>
+            <Link
+              href={`/app/correspondances/${matchId}/paiement`}
+              className={buttonClasses({ variant: 'primary', size: 'sm' })}
+            >
+              Continuer vers le paiement
+            </Link>
           ) : null}
         </Alert>
       ) : null}
 
+      {state.status === 'UNDER_REVIEW' && result?.outcome === 'UNDER_REVIEW' && !state.isFinder ? (
+        <section className="space-y-3 rounded-2xl border border-info-500/30 bg-info-50/50 p-5">
+          <h2 className="font-display text-body-lg font-bold text-ink-950">
+            Preuves photo privées
+          </h2>
+          <p className="text-body-sm text-ink-600">
+            facultatives, elles sont conservées dans un espace séparé et reserveées à la revue de
+            votre correspondance.
+          </p>
+          {state.questions
+            .filter((question) => answers[question.id]?.trim())
+            .map((question) => (
+              <VerificationEvidenceUploader
+                key={question.id}
+                matchId={matchId}
+                questionId={question.id}
+                questionLabel={question.promptFr}
+              />
+            ))}
+        </section>
+      ) : null}
+
       {error && !result ? <Alert tone="danger" title={error} /> : null}
       {state.questions.length === 0 && !state.isFinder ? (
-        <Alert
-          tone="warning"
-          title="Questions indisponibles pour cette catégorie"
-        />
+        <Alert tone="warning" title="Questions indisponibles pour cette catégorie" />
       ) : null}
 
       {state.locked ? (
@@ -225,9 +251,7 @@ export default function VerificationPage() {
         </Alert>
       ) : null}
 
-      {state.status === 'APPROVED' ? (
-        <Alert tone="success" title="Propriété approuvée" />
-      ) : null}
+      {state.status === 'APPROVED' ? <Alert tone="success" title="Propriété approuvée" /> : null}
 
       {state.status === 'UNDER_REVIEW' && !state.isFinder ? (
         <Alert tone="info" title="Vérification en cours">
@@ -288,13 +312,17 @@ export default function VerificationPage() {
       ) : null}
 
       {/* Formulaire propriétaire */}
-      {!state.isFinder && !state.locked && state.status !== 'APPROVED' && state.status !== 'UNDER_REVIEW' && state.questions.length > 0 ? (
+      {!state.isFinder &&
+      !state.locked &&
+      state.status !== 'APPROVED' &&
+      state.status !== 'UNDER_REVIEW' &&
+      state.questions.length > 0 ? (
         <section className="space-y-4 rounded-2xl border border-ink-200 bg-white p-5 sm:p-6">
           <div className="flex items-start gap-2 text-body-sm text-ink-600">
             <Lock size={16} className="mt-0.5 shrink-0" aria-hidden />
             <p>
-              Vos réponses ne sont jamais renvoyées après soumission, ni au trouveur hors revue,
-              ni dans les journaux.
+              Vos réponses ne sont jamais renvoyées après soumission, ni au trouveur hors revue, ni
+              dans les journaux.
             </p>
           </div>
 
@@ -332,7 +360,7 @@ export default function VerificationPage() {
       {state.status === 'APPROVED' ? (
         <button
           type="button"
-           onClick={() => router.push(`/app/correspondances/${matchId}/paiement`)}
+          onClick={() => router.push(`/app/correspondances/${matchId}/paiement`)}
           className={buttonClasses({ variant: 'primary' })}
         >
           Continuer vers le devis →
