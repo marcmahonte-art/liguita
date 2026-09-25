@@ -14,6 +14,7 @@
     "start": "pnpm --filter @liguita/web start",
     "test": "pnpm -r test",
     "test:watch": "pnpm -r test:watch",
+    "test:e2e": "playwright test",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
@@ -22,6 +23,7 @@
     "clean": "rimraf \"**/node_modules\" \"**/.next\" \"**/dist\" \"**/.turbo\""
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/node": "^22.10.5",
     "prettier": "^3.4.2",
     "rimraf": "^6.0.1",
