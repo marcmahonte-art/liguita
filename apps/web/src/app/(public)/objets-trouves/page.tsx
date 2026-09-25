@@ -4,8 +4,7 @@ import Link from 'next/link';
 import { buttonClasses } from '@liguita/ui';
 
 import { ItemCard } from '../../../components/public/ItemCard';
-import { createPublicSupabase } from '../../../lib/supabase/public';
-import { toPublicItem, type PublicItem } from '../../../lib/search';
+import { fetchPublicFoundItems, type PublicFoundItemCard } from '../../../lib/public-found-items';
 
 export const revalidate = 3600;
 
@@ -18,14 +17,9 @@ export const metadata: Metadata = {
 
 const PAGE_LIMIT = 24;
 
-async function fetchFoundItems(): Promise<PublicItem[]> {
+async function fetchFoundItems(): Promise<PublicFoundItemCard[]> {
   try {
-    const supabase = createPublicSupabase();
-    const { data, error } = await supabase.rpc('search_found_items', {
-      p_limit: PAGE_LIMIT,
-    });
-    if (error || !Array.isArray(data)) return [];
-    return data.map((row) => toPublicItem(row as Record<string, unknown>));
+    return await fetchPublicFoundItems(PAGE_LIMIT);
   } catch {
     return [];
   }
@@ -59,8 +53,8 @@ export default async function FoundItemsPage() {
 
         {items.length > 0 ? (
           <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {items.map((item) => (
-              <ItemCard key={item.id} item={item} />
+            {items.map(({ item, photoUrl }) => (
+              <ItemCard key={item.id} item={item} photoUrl={photoUrl} />
             ))}
           </div>
         ) : (

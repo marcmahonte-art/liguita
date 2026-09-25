@@ -11,6 +11,7 @@ export interface ItemCardProps {
   item: PublicItem;
   /** Badge « correspondance probable » affiché en priorité (matching). */
   matchLabel?: string;
+  photoUrl?: string | null;
   className?: string;
 }
 
@@ -25,7 +26,7 @@ export interface ItemCardProps {
  * qui cherche — il déclare sa perte avec `?match={id}` pour amorcer le
  * rapprochement.
  */
-export function ItemCard({ item, matchLabel, className }: ItemCardProps) {
+export function ItemCard({ item, matchLabel, photoUrl, className }: ItemCardProps) {
   const category = findCategory(item.category_code);
   const city = findCity(item.city_slug);
   const neighborhood = item.neighborhood_slug
@@ -42,6 +43,15 @@ export function ItemCard({ item, matchLabel, className }: ItemCardProps) {
     <article
       className={`flex h-full flex-col justify-between rounded-2xl border border-ink-200 bg-white p-5 shadow-xs transition hover:border-brand-300 hover:shadow-card ${className ?? ''}`}
     >
+      {photoUrl ? (
+        <div className="relative aspect-[4/3] overflow-hidden bg-ink-100">
+          <img
+            src={photoUrl}
+            alt={`Photo de l’objet trouvé : ${item.title}`}
+            className="h-full w-full object-cover"
+          />
+        </div>
+      ) : null}
       <div>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Badge tone="found" dot>
