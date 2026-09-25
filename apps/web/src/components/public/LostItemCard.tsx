@@ -6,13 +6,14 @@ import { Badge, buttonClasses } from '@liguita/ui';
 
 import { formatLongDate } from '../../lib/format';
 import type { PublicLostItemCard } from '../../lib/public-lost-items';
+import type { PublicLostSearchItem } from '../../app/actions/public-lost-items';
 
 const STATUS_LABELS: Record<string, string> = {
   DECLARED: 'Objet perdu',
   SEARCHING: 'Recherche en cours',
 };
 
-export function LostItemCard({ item }: { item: PublicLostItemCard }) {
+export function LostItemCard({ item }: { item: PublicLostItemCard | PublicLostSearchItem }) {
   const category = findCategory(item.item_type_code) ?? findCategory(item.category_code);
   const city = findCity(item.city_slug);
   const neighborhood = item.neighborhood_slug ? findNeighborhood(item.neighborhood_slug) : undefined;

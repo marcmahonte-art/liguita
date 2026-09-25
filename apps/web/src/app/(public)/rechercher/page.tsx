@@ -15,22 +15,26 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { CATEGORIES, NEIGHBORHOODS } from '@liguita/config';
 import { Alert, buttonClasses, cn, EmptyState, Skeleton } from '@liguita/ui';
 
+import { searchPublicLostItems, type PublicLostSearchItem } from '../../actions/public-lost-items';
 import { saveSearch } from '../../actions/saved-searches';
 import { ItemCard } from '../../../components/public/ItemCard';
+import { LostItemCard } from '../../../components/public/LostItemCard';
 import { createClient } from '../../../lib/supabase/client';
 import { toPublicItem, type PublicItem } from '../../../lib/search';
 
 const PAGE_SIZE = 12;
 const DEBOUNCE_MS = 300;
 
-type KindFilter = 'all' | 'found';
+type KindFilter = 'all' | 'found' | 'lost';
 
 interface SearchState {
-  items: PublicItem[];
+  items: Array<PublicItem | PublicLostSearchItem>;
   isLoading: boolean;
   error: string | null;
   nextCursorFoundAt: string | null;
   nextCursorId: string | null;
+  nextCursorLostOccurredAt: string | null;
+  nextCursorLostId: string | null;
   hasMore: boolean;
 }
 
@@ -40,6 +44,8 @@ const INITIAL_STATE: SearchState = {
   error: null,
   nextCursorFoundAt: null,
   nextCursorId: null,
+  nextCursorLostOccurredAt: null,
+  nextCursorLostId: null,
   hasMore: false,
 };
 
@@ -65,9 +71,16 @@ function SearchContent() {
   }>({ status: 'idle' });
 
   const [state, setState] = useState<SearchState>(INITIAL_STATE);
-  const cursorRef = useRef<{ foundAt: string | null; id: string | null }>({
+  const cursorRef = useRef<{
+    foundAt: string | null;
+    id: string | null;
+    lostOccurredAt: string | null;
+    lostId: string | null;
+  }>({
     foundAt: null,
     id: null,
+    lostOccurredAt: null,
+    lostId: null,
   });
   const requestIdRef = useRef(0);
 
@@ -123,7 +136,7 @@ function SearchContent() {
       const q = (mode === 'reset' ? query : urlQuery).trim();
 
       if (mode === 'reset') {
-        cursorRef.current = { foundAt: null, id: null };
+        cursorRef.current = { foundAt: null, id: null, lostOccurredAt: null, lostId: null };
         setState((prev) => ({ ...prev, isLoading: true, error: null }));
       } else {
         setState((prev) => ({ ...prev, isLoading: true, error: null }));
@@ -139,44 +152,77 @@ function SearchContent() {
       }
 
       try {
-        const supabase = createClient();
-        const { data, error } = await supabase.rpc('search_found_items', {
-          p_query: q || null,
-          p_category_code: urlCategory === 'ALL' ? null : urlCategory,
-          p_neighborhood_slug: urlNeighborhood === 'ALL' ? null : urlNeighborhood,
-          p_limit: PAGE_SIZE,
-          p_cursor_found_at: mode === 'more' ? cursorRef.current.foundAt : null,
-          p_cursor_id: mode === 'more' ? cursorRef.current.id : null,
-        });
+        const includeFound = selectedKind !== 'lost';
+        const includeLost = selectedKind !== 'found';
+        const foundRequest = includeFound
+          ? createClient().rpc('search_found_items', {
+              p_query: q || null,
+              p_category_code: urlCategory === 'ALL' ? null : urlCategory,
+              p_neighborhood_slug: urlNeighborhood === 'ALL' ? null : urlNeighborhood,
+              p_limit: PAGE_SIZE,
+              p_cursor_found_at: mode === 'more' ? cursorRef.current.foundAt : null,
+              p_cursor_id: mode === 'more' ? cursorRef.current.id : null,
+            })
+          : Promise.resolve({ data: [], error: null });
+        const lostRequest = includeLost
+          ? searchPublicLostItems({
+              query: q,
+              categoryCode: urlCategory === 'ALL' ? undefined : urlCategory,
+              neighborhoodSlug: urlNeighborhood === 'ALL' ? undefined : urlNeighborhood,
+              cursorOccurredAt: mode === 'more' ? cursorRef.current.lostOccurredAt : null,
+              cursorId: mode === 'more' ? cursorRef.current.lostId : null,
+              limit: PAGE_SIZE,
+            })
+          : Promise.resolve({ items: [], nextCursorOccurredAt: null, nextCursorId: null, hasMore: false });
 
+        const [foundResult, lostResult] = await Promise.all([foundRequest, lostRequest]);
         if (requestId !== requestIdRef.current) return;
 
-        if (error) {
+        if (foundResult.error) {
           setState((prev) => ({
             ...prev,
             isLoading: false,
-            error: error.message || 'La recherche a échoué.',
+            error: foundResult.error.message || 'La recherche a échoué.',
+          }));
+          return;
+        }
+        if ('error' in lostResult && lostResult.error) {
+          setState((prev) => ({
+            ...prev,
+            isLoading: false,
+            error: lostResult.error ?? 'La recherche est indisponible.',
           }));
           return;
         }
 
-        const rows = Array.isArray(data) ? data : [];
-        const mapped = rows.map((row) => toPublicItem(row as Record<string, unknown>));
-        const last = rows[rows.length - 1] as
+        const foundRows = Array.isArray(foundResult.data) ? foundResult.data : [];
+        const foundItems = foundRows.map((row) => toPublicItem(row as Record<string, unknown>));
+        const lostItems = 'items' in lostResult ? lostResult.items : [];
+        const foundLast = foundRows[foundRows.length - 1] as
           | { next_cursor_found_at?: string | null; next_cursor_id?: string | null }
           | undefined;
-
-        const nextFoundAt = last?.next_cursor_found_at ?? null;
-        const nextId = last?.next_cursor_id ?? null;
-        cursorRef.current = { foundAt: nextFoundAt, id: nextId };
+        const nextFoundAt = foundLast?.next_cursor_found_at ?? null;
+        const nextFoundId = foundLast?.next_cursor_id ?? null;
+        const nextLostOccurredAt = 'nextCursorOccurredAt' in lostResult ? lostResult.nextCursorOccurredAt : null;
+        const nextLostId = 'nextCursorId' in lostResult ? lostResult.nextCursorId : null;
+        cursorRef.current = {
+          foundAt: nextFoundAt,
+          id: nextFoundId,
+          lostOccurredAt: nextLostOccurredAt,
+          lostId: nextLostId,
+        };
 
         setState((prev) => ({
-          items: mode === 'more' ? [...prev.items, ...mapped] : mapped,
+          items: mode === 'more' ? [...prev.items, ...foundItems, ...lostItems] : [...foundItems, ...lostItems],
           isLoading: false,
           error: null,
           nextCursorFoundAt: nextFoundAt,
-          nextCursorId: nextId,
-          hasMore: Boolean(nextFoundAt && nextId),
+          nextCursorId: nextFoundId,
+          nextCursorLostOccurredAt: nextLostOccurredAt,
+          nextCursorLostId: nextLostId,
+          hasMore:
+            (Boolean(nextFoundAt && nextFoundId) && includeFound) ||
+            (Boolean(nextLostOccurredAt && nextLostId) && includeLost),
         }));
       } catch (err) {
         if (requestId !== requestIdRef.current) return;
@@ -187,7 +233,7 @@ function SearchContent() {
         }));
       }
     },
-    [query, urlQuery, urlCategory, urlNeighborhood, isOnline],
+    [query, urlQuery, urlCategory, urlNeighborhood, isOnline, selectedKind],
   );
 
   // Rechargement à chaque changement de critères (reset).
@@ -255,8 +301,8 @@ function SearchContent() {
             Rechercher un objet
           </h1>
           <p className="mt-2 text-body text-ink-600">
-            Consultez les objets trouvés enregistrés à N&apos;Djamena et au Tchad. Aucune
-            donnée personnelle n&apos;est exposée (loi n° 007/PR/2015).
+             Consultez les objets trouvés et perdus enregistrés à N&apos;Djamena et au Tchad.
+             Aucune donnée personnelle n&apos;est exposée (loi n° 007/PR/2015).
           </p>
         </div>
 
@@ -303,6 +349,18 @@ function SearchContent() {
                 )}
               >
                 Objets trouvés
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedKind('lost')}
+                className={cn(
+                  'rounded-md px-3 py-1 text-caption font-semibold transition',
+                  selectedKind === 'lost'
+                    ? 'bg-brand-600 text-white shadow-2xs'
+                    : 'text-ink-600 hover:text-ink-900',
+                )}
+              >
+                Objets perdus
               </button>
             </div>
 
@@ -429,9 +487,13 @@ function SearchContent() {
           ) : uniqueItems.length > 0 ? (
             <>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {uniqueItems.map((item) => (
-                  <ItemCard key={item.id} item={item} />
-                ))}
+                {uniqueItems.map((item) =>
+                  'kind' in item && item.kind === 'lost' ? (
+                    <LostItemCard key={item.id} item={item} />
+                  ) : (
+                    <ItemCard key={item.id} item={item as PublicItem} />
+                  ),
+                )}
               </div>
 
               {state.isLoading ? (
@@ -468,11 +530,15 @@ function SearchContent() {
 
         <div className="mt-10 rounded-2xl border border-ink-200 bg-white p-5 text-caption text-ink-600">
           <p>
-            Explorez aussi{' '}
-            <Link href="/objets-trouves" className="font-semibold text-brand-700 hover:underline">
-              les derniers objets trouvés
-            </Link>{' '}
-            au Tchad — mise à jour automatique chaque heure.
+             Explorez aussi{' '}
+             <Link href="/objets-trouves" className="font-semibold text-brand-700 hover:underline">
+               les derniers objets trouvés
+             </Link>{' '}
+             ou{' '}
+             <Link href="/objets-perdus" className="font-semibold text-brand-700 hover:underline">
+               les objets perdus
+             </Link>{' '}
+             au Tchad.
           </p>
         </div>
       </div>
