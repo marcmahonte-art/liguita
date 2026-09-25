@@ -15,12 +15,11 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { CATEGORIES, NEIGHBORHOODS } from '@liguita/config';
 import { Alert, buttonClasses, cn, EmptyState, Skeleton } from '@liguita/ui';
 
+import { searchPublicFoundItems, type PublicFoundSearchItem } from '../../actions/public-found-items';
 import { searchPublicLostItems, type PublicLostSearchItem } from '../../actions/public-lost-items';
 import { saveSearch } from '../../actions/saved-searches';
 import { ItemCard } from '../../../components/public/ItemCard';
 import { LostItemCard } from '../../../components/public/LostItemCard';
-import { createClient } from '../../../lib/supabase/client';
-import { toPublicItem, type PublicItem } from '../../../lib/search';
 
 const PAGE_SIZE = 12;
 const DEBOUNCE_MS = 300;
@@ -28,7 +27,7 @@ const DEBOUNCE_MS = 300;
 type KindFilter = 'all' | 'found' | 'lost';
 
 interface SearchState {
-  items: Array<PublicItem | PublicLostSearchItem>;
+  items: Array<PublicFoundSearchItem | PublicLostSearchItem>;
   isLoading: boolean;
   error: string | null;
   nextCursorFoundAt: string | null;
@@ -155,15 +154,15 @@ function SearchContent() {
         const includeFound = selectedKind !== 'lost';
         const includeLost = selectedKind !== 'found';
         const foundRequest = includeFound
-          ? createClient().rpc('search_found_items', {
-              p_query: q || null,
-              p_category_code: urlCategory === 'ALL' ? null : urlCategory,
-              p_neighborhood_slug: urlNeighborhood === 'ALL' ? null : urlNeighborhood,
-              p_limit: PAGE_SIZE,
-              p_cursor_found_at: mode === 'more' ? cursorRef.current.foundAt : null,
-              p_cursor_id: mode === 'more' ? cursorRef.current.id : null,
+          ? searchPublicFoundItems({
+              query: q,
+              categoryCode: urlCategory === 'ALL' ? undefined : urlCategory,
+              neighborhoodSlug: urlNeighborhood === 'ALL' ? undefined : urlNeighborhood,
+              cursorFoundAt: mode === 'more' ? cursorRef.current.foundAt : null,
+              cursorId: mode === 'more' ? cursorRef.current.id : null,
+              limit: PAGE_SIZE,
             })
-          : Promise.resolve({ data: [], error: null });
+          : Promise.resolve({ items: [], nextCursorFoundAt: null, nextCursorId: null, hasMore: false });
         const lostRequest = includeLost
           ? searchPublicLostItems({
               query: q,
@@ -178,11 +177,11 @@ function SearchContent() {
         const [foundResult, lostResult] = await Promise.all([foundRequest, lostRequest]);
         if (requestId !== requestIdRef.current) return;
 
-        if (foundResult.error) {
+        if ('error' in foundResult && foundResult.error) {
           setState((prev) => ({
             ...prev,
             isLoading: false,
-            error: foundResult.error.message || 'La recherche a échoué.',
+            error: foundResult.error ?? 'La recherche a échoué.',
           }));
           return;
         }
@@ -195,14 +194,10 @@ function SearchContent() {
           return;
         }
 
-        const foundRows = Array.isArray(foundResult.data) ? foundResult.data : [];
-        const foundItems = foundRows.map((row) => toPublicItem(row as Record<string, unknown>));
+        const foundItems = 'items' in foundResult ? foundResult.items : [];
         const lostItems = 'items' in lostResult ? lostResult.items : [];
-        const foundLast = foundRows[foundRows.length - 1] as
-          | { next_cursor_found_at?: string | null; next_cursor_id?: string | null }
-          | undefined;
-        const nextFoundAt = foundLast?.next_cursor_found_at ?? null;
-        const nextFoundId = foundLast?.next_cursor_id ?? null;
+        const nextFoundAt = 'nextCursorFoundAt' in foundResult ? foundResult.nextCursorFoundAt : null;
+        const nextFoundId = 'nextCursorId' in foundResult ? foundResult.nextCursorId : null;
         const nextLostOccurredAt = 'nextCursorOccurredAt' in lostResult ? lostResult.nextCursorOccurredAt : null;
         const nextLostId = 'nextCursorId' in lostResult ? lostResult.nextCursorId : null;
         cursorRef.current = {
@@ -244,8 +239,9 @@ function SearchContent() {
   const uniqueItems = useMemo(() => {
     const seen = new Set<string>();
     return state.items.filter((item) => {
-      if (seen.has(item.id)) return false;
-      seen.add(item.id);
+      const id = item.kind === 'lost' ? `lost:${item.id}` : `found:${item.item.id}`;
+      if (seen.has(id)) return false;
+      seen.add(id);
       return true;
     });
   }, [state.items]);
@@ -488,10 +484,10 @@ function SearchContent() {
             <>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {uniqueItems.map((item) =>
-                  'kind' in item && item.kind === 'lost' ? (
+                  item.kind === 'lost' ? (
                     <LostItemCard key={item.id} item={item} />
                   ) : (
-                    <ItemCard key={item.id} item={item as PublicItem} />
+                    <ItemCard key={item.item.id} item={item.item} photoUrl={item.photoUrl} />
                   ),
                 )}
               </div>
