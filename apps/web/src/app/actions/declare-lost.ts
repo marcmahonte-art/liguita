@@ -5,11 +5,17 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '../../lib/supabase/server';
 import { tryCreateServiceClient } from '../../lib/supabase/service';
 import { runMatchingForLost } from '../../lib/matching/run';
+import { uploadItemPhoto } from './photos';
+
+const MAX_PHOTOS = 4;
+const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/avif']);
 
 export interface DeclareLostResult {
   success: boolean;
   id?: string;
   error?: string;
+  photoWarnings?: string[];
 }
 
 /**
@@ -41,6 +47,7 @@ export async function declareLostItem(formData: FormData): Promise<DeclareLostRe
   const color = String(formData.get('color') ?? '').trim();
   const description = String(formData.get('description') ?? '').trim();
   const declaredValueRaw = String(formData.get('declaredValueXaf') ?? '').trim();
+  const photos = formData.getAll('photos').filter((value): value is File => value instanceof File);
 
   if (!categoryCode || !itemTypeCode || !title || !citySlug || !placeLabel || !occurredAt) {
     return {
@@ -51,6 +58,19 @@ export async function declareLostItem(formData: FormData): Promise<DeclareLostRe
 
   if (!/^\d{4}-\d{2}-\d{2}/.test(occurredAt)) {
     return { success: false, error: 'La date de perte est invalide.' };
+  }
+
+  if (photos.length > MAX_PHOTOS) {
+    return { success: false, error: 'Quatre photos maximum par objet.' };
+  }
+
+  for (const photo of photos) {
+    if (!ALLOWED_PHOTO_TYPES.has(photo.type)) {
+      return { success: false, error: 'Format de photo non autorisé.' };
+    }
+    if (photo.size <= 0 || photo.size > MAX_PHOTO_SIZE_BYTES) {
+      return { success: false, error: 'Chaque photo doit peser au maximum 5 Mo.' };
+    }
   }
 
   const declaredValueXaf = declaredValueRaw ? Number.parseInt(declaredValueRaw, 10) : null;
@@ -85,6 +105,22 @@ export async function declareLostItem(formData: FormData): Promise<DeclareLostRe
     };
   }
 
+  const photoWarnings: string[] = [];
+  for (const [index, photo] of photos.entries()) {
+    const photoFormData = new FormData();
+    photoFormData.set('itemId', data.id);
+    photoFormData.set('itemKind', 'LOST');
+    photoFormData.set('photo', photo);
+    try {
+      const result = await uploadItemPhoto(photoFormData);
+      if (!result.success) {
+        photoWarnings.push(result.error ?? `La photo ${index + 1} n’a pas pu être ajoutée.`);
+      }
+    } catch {
+      photoWarnings.push(`La photo ${index + 1} n’a pas pu être ajoutée.`);
+    }
+  }
+
   try {
     const service = tryCreateServiceClient();
     if (service) await runMatchingForLost(service, data.id);
@@ -95,5 +131,9 @@ export async function declareLostItem(formData: FormData): Promise<DeclareLostRe
   revalidatePath('/declarer/perdu');
   revalidatePath('/app/objets');
   revalidatePath('/app/correspondances');
-  return { success: true, id: data.id };
+  return {
+    success: true,
+    id: data.id,
+    photoWarnings: photoWarnings.length > 0 ? photoWarnings : undefined,
+  };
 }
