@@ -6,7 +6,7 @@ import { buttonClasses } from '@liguita/ui';
 import { ItemCard } from '../../../components/public/ItemCard';
 import { fetchPublicFoundItems, type PublicFoundItemCard } from '../../../lib/public-found-items';
 
-export const revalidate = 3600;
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Objets trouvés au Tchad — Liguita',
