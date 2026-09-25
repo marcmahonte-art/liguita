@@ -5,11 +5,17 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '../../lib/supabase/server';
 import { tryCreateServiceClient } from '../../lib/supabase/service';
 import { runMatchingForFound } from '../../lib/matching/run';
+import { uploadItemPhoto } from './photos';
+
+const MAX_PHOTOS = 4;
+const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/avif']);
 
 export interface DeclareFoundResult {
   success: boolean;
   id?: string;
   error?: string;
+  photoWarnings?: string[];
 }
 
 /**
@@ -39,6 +45,7 @@ export async function declareFoundItem(formData: FormData): Promise<DeclareFound
   const brand = String(formData.get('brand') ?? '').trim();
   const color = String(formData.get('color') ?? '').trim();
   const description = String(formData.get('description') ?? '').trim();
+  const photos = formData.getAll('photos').filter((value): value is File => value instanceof File);
 
   if (!categoryCode || !itemTypeCode || !title || !citySlug || !placeLabel || !foundAt) {
     return {
@@ -49,6 +56,19 @@ export async function declareFoundItem(formData: FormData): Promise<DeclareFound
 
   if (!/^\d{4}-\d{2}-\d{2}/.test(foundAt)) {
     return { success: false, error: 'La date de découverte est invalide.' };
+  }
+
+  if (photos.length > MAX_PHOTOS) {
+    return { success: false, error: 'Quatre photos maximum par objet.' };
+  }
+
+  for (const photo of photos) {
+    if (!ALLOWED_PHOTO_TYPES.has(photo.type)) {
+      return { success: false, error: 'Format de photo non autorisé.' };
+    }
+    if (photo.size <= 0 || photo.size > MAX_PHOTO_SIZE_BYTES) {
+      return { success: false, error: 'Chaque photo doit peser au maximum 5 Mo.' };
+    }
   }
 
   const { data, error } = await supabase
@@ -77,6 +97,22 @@ export async function declareFoundItem(formData: FormData): Promise<DeclareFound
     };
   }
 
+  const photoWarnings: string[] = [];
+  for (const [index, photo] of photos.entries()) {
+    const photoFormData = new FormData();
+    photoFormData.set('itemId', data.id);
+    photoFormData.set('itemKind', 'FOUND');
+    photoFormData.set('photo', photo);
+    try {
+      const result = await uploadItemPhoto(photoFormData);
+      if (!result.success) {
+        photoWarnings.push(result.error ?? `La photo ${index + 1} n’a pas pu être ajoutée.`);
+      }
+    } catch {
+      photoWarnings.push(`La photo ${index + 1} n’a pas pu être ajoutée.`);
+    }
+  }
+
   // Matching synchrone (§6.5) — service_role pour lire les pertes des autres
   // utilisateurs. On ne bloque pas la réponse si le pré-filtrage échoue :
   // le worker match-sweep rattrapera.
@@ -90,5 +126,9 @@ export async function declareFoundItem(formData: FormData): Promise<DeclareFound
   revalidatePath('/declarer/trouve');
   revalidatePath('/app/objets');
   revalidatePath('/app/correspondances');
-  return { success: true, id: data.id };
+  return {
+    success: true,
+    id: data.id,
+    photoWarnings: photoWarnings.length > 0 ? photoWarnings : undefined,
+  };
 }

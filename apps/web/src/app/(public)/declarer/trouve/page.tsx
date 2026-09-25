@@ -4,9 +4,11 @@ import {
   Award,
   CheckCircle2,
   Gift,
+  ImagePlus,
   LogIn,
   Save,
   Sparkles,
+  Trash2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -61,6 +63,9 @@ export default function DeclareFoundItemPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submittedId, setSubmittedId] = useState<string | null>(null);
+  const [selectedPhotos, setSelectedPhotos] = useState<File[]>([]);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [photoWarnings, setPhotoWarnings] = useState<string[]>([]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -88,6 +93,34 @@ export default function DeclareFoundItemPage() {
     formData.placeLabel.trim() &&
     formData.foundDate;
 
+  function handlePhotoChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    if (files.length === 0) return;
+    if (selectedPhotos.length + files.length > 4) {
+      setPhotoError('Quatre photos maximum par objet.');
+      return;
+    }
+    if (files.some((file) => file.size <= 0 || file.size > 5 * 1024 * 1024)) {
+      setPhotoError('Chaque photo doit peser au maximum 5 Mo.');
+      return;
+    }
+    if (
+      files.some(
+        (file) => !['image/jpeg', 'image/png', 'image/webp', 'image/avif'].includes(file.type),
+      )
+    ) {
+      setPhotoError('Format de photo non autorisé.');
+      return;
+    }
+    setPhotoError(null);
+    setSelectedPhotos((current) => [...current, ...files]);
+  }
+
+  function removePhoto(index: number) {
+    setSelectedPhotos((current) => current.filter((_, photoIndex) => photoIndex !== index));
+  }
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (!canSubmit || isSubmitting) return;
@@ -106,6 +139,9 @@ export default function DeclareFoundItemPage() {
     fd.set('neighborhoodSlug', formData.neighborhoodSlug);
     fd.set('placeLabel', formData.placeLabel.trim());
     fd.set('foundAt', formData.foundDate);
+    for (const photo of selectedPhotos) {
+      fd.append('photos', photo);
+    }
 
     const result = await declareFoundItem(fd);
 
@@ -117,6 +153,8 @@ export default function DeclareFoundItemPage() {
     }
 
     clearDraft();
+    setPhotoWarnings(result.photoWarnings ?? []);
+    setSelectedPhotos([]);
     setSubmittedId(result.id ?? null);
   }
 
@@ -173,6 +211,15 @@ export default function DeclareFoundItemPage() {
              <p className="mt-2 text-caption text-ink-500">
                Référence : <code className="font-mono text-ink-800">{submittedId}</code>
              </p>
+
+             {photoWarnings.length > 0 ? (
+               <div role="alert" className="mt-4 rounded-2xl border border-warning-200 bg-warning-50 p-4 text-left text-caption text-warning-800">
+                 <p className="font-bold">Certaines photos n’ont pas pu être ajoutées.</p>
+                 <ul className="mt-2 list-disc pl-4">
+                   {photoWarnings.map((warning) => <li key={warning}>{warning}</li>)}
+                 </ul>
+               </div>
+             ) : null}
 
              <ItemPhotoUploader itemId={submittedId} itemKind="FOUND" />
 
@@ -332,6 +379,52 @@ export default function DeclareFoundItemPage() {
                 placeholder="Ex : Trousseau avec porte-clés rouge, une clé de moto et deux clés de maison."
                 className="w-full rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 text-body text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none"
               />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between gap-3">
+                <label htmlFor="found-photos" className="text-body-sm font-bold text-ink-800">
+                  Photos de l&apos;objet <span className="font-normal text-ink-500">(facultatif)</span>
+                </label>
+                <span className="text-caption text-ink-500">{selectedPhotos.length}/4</span>
+              </div>
+              <label
+                htmlFor="found-photos"
+                className="mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-ink-300 bg-ink-50/50 px-4 py-4 text-body-sm font-semibold text-brand-700 transition hover:border-brand-400 hover:bg-brand-50"
+              >
+                <ImagePlus size={18} />
+                <span>Choisir jusqu&apos;à 4 photos</span>
+                <input
+                  id="found-photos"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/avif"
+                  multiple
+                  onChange={handlePhotoChange}
+                  disabled={selectedPhotos.length >= 4}
+                  className="sr-only"
+                />
+              </label>
+              <p className="mt-1.5 text-caption text-ink-500">
+                JPEG, PNG, WebP ou AVIF · 5 Mo maximum par photo
+              </p>
+              {selectedPhotos.length > 0 ? (
+                <ul className="mt-3 space-y-2">
+                  {selectedPhotos.map((photo, index) => (
+                    <li key={`${photo.name}-${index}`} className="flex items-center justify-between gap-3 rounded-lg bg-ink-50 px-3 py-2 text-caption text-ink-700">
+                      <span className="truncate">{photo.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => removePhoto(index)}
+                        className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-ink-500 transition hover:bg-white hover:text-danger-700"
+                        aria-label={`Retirer ${photo.name}`}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {photoError ? <p role="alert" className="mt-2 text-caption font-bold text-danger-700">{photoError}</p> : null}
             </div>
           </div>
 
