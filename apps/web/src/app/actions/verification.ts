@@ -29,6 +29,7 @@ const EVIDENCE_EXTENSIONS: Record<string, string> = {
   'image/avif': 'avif',
 };
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const EVIDENCE_PATH_PATTERN = /^VERIFICATION\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png|webp|avif)$/i;
 
 export interface VerificationQuestionView {
   readonly id: string;
@@ -644,6 +645,7 @@ export interface ClaimReviewItem {
     prompt: string;
     answer: string;
     isCorrect: boolean | null;
+    evidenceUrl: string | null;
   }>;
 }
 
@@ -682,7 +684,7 @@ export async function listClaimsForReview(): Promise<{
       service.from('found_items').select('title').eq('id', match.found_item_id).maybeSingle(),
       service
         .from('verification_answers')
-        .select('answer, is_correct, question_id')
+        .select('answer, answer_photo, is_correct, question_id')
         .eq('claim_id', claim.id),
     ]);
 
@@ -705,15 +707,25 @@ export async function listClaimsForReview(): Promise<{
       createdAt: claim.created_at,
       lostTitle: lost?.title ?? null,
       foundTitle: found?.title ?? null,
-      answers: (answers ?? []).map((a) => {
-        const q = qById.get(a.question_id);
-        return {
-          questionCode: q?.code ?? '',
-          prompt: q?.prompt_fr ?? 'Question',
-          answer: a.answer ?? '',
-          isCorrect: a.is_correct,
-        };
-      }),
+      answers: await Promise.all(
+        (answers ?? []).map(async (a) => {
+          const q = qById.get(a.question_id);
+          let evidenceUrl: string | null = null;
+          if (a.answer_photo && EVIDENCE_PATH_PATTERN.test(a.answer_photo)) {
+            const signed = await service.storage
+              .from('verification-evidence')
+              .createSignedUrl(a.answer_photo, 60);
+            evidenceUrl = signed.data?.signedUrl ?? null;
+          }
+          return {
+            questionCode: q?.code ?? '',
+            prompt: q?.prompt_fr ?? 'Question',
+            answer: a.answer ?? '',
+            isCorrect: a.is_correct,
+            evidenceUrl,
+          };
+        }),
+      ),
     });
   }
 

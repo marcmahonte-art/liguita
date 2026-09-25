@@ -6,11 +6,7 @@ import { useCallback, useEffect, useState, useTransition } from 'react';
 
 import { Alert, Badge, buttonClasses, Card, EmptyState, Skeleton } from '@liguita/ui';
 
-import {
-  listClaimsForReview,
-  reviewClaim,
-  type ClaimReviewItem,
-} from '../../actions/verification';
+import { listClaimsForReview, reviewClaim, type ClaimReviewItem } from '../../actions/verification';
 import { useAuth } from '../../../lib/auth/auth-context';
 import { formatShortDate } from '../../../lib/format';
 
@@ -49,7 +45,11 @@ export default function ModerationPage() {
 
   function handleDecision(id: string, decision: 'APPROVED' | 'REJECTED') {
     startTransition(async () => {
-      const res = await reviewClaim(id, decision, decision === 'REJECTED' ? 'Revue manuelle' : undefined);
+      const res = await reviewClaim(
+        id,
+        decision,
+        decision === 'REJECTED' ? 'Revue manuelle' : undefined,
+      );
       if (!res.ok) setFlash(res.error ?? 'Échec');
       else setFlash(decision === 'APPROVED' ? 'Demande approuvée.' : 'Demande refusée.');
       await load();
@@ -101,7 +101,10 @@ export default function ModerationPage() {
       ) : (
         <ul className="space-y-4">
           {items.map((item) => {
-            const status = STATUS_LABEL[item.status] ?? { text: item.status, tone: 'neutral' as const };
+            const status = STATUS_LABEL[item.status] ?? {
+              text: item.status,
+              tone: 'neutral' as const,
+            };
             return (
               <li key={item.id}>
                 <Card>
@@ -110,9 +113,7 @@ export default function ModerationPage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge tone={status.tone}>{status.text}</Badge>
                         <Badge tone="outline">Score {item.score}</Badge>
-                        <Badge tone="neutral">
-                          Tentative {item.attemptCount}/3
-                        </Badge>
+                        <Badge tone="neutral">Tentative {item.attemptCount}/3</Badge>
                       </div>
                       <p className="mt-2 font-display text-body-lg font-bold text-ink-950">
                         {item.lostTitle ?? '—'} ↔ {item.foundTitle ?? '—'}
@@ -176,6 +177,18 @@ export default function ModerationPage() {
                                 </span>
                               ) : null}
                             </dd>
+                            {a.evidenceUrl ? (
+                              <div className="mt-3">
+                                <p className="mb-1 text-2xs font-bold uppercase tracking-wide text-ink-500">
+                                  Preuve photo privée
+                                </p>
+                                <img
+                                  src={a.evidenceUrl}
+                                  alt="Preuve photo de vérification"
+                                  className="max-h-64 w-full rounded-lg border border-ink-200 object-cover"
+                                />
+                              </div>
+                            ) : null}
                           </div>
                         ))}
                       </dl>
