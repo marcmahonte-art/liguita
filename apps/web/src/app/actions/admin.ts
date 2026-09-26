@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 
+import { publicNameOf } from '../../lib/auth/identity';
 import { createClient } from '../../lib/supabase/server';
 import { tryCreateServiceClient } from '../../lib/supabase/service';
 
@@ -14,14 +15,42 @@ async function requireAdmin() {
   return { supabase, user, role, error: role ? undefined : 'Accès réservé à l’administration.' };
 }
 
-export async function listAdminUsers(): Promise<{ items: Array<{ id: string; displayName: string | null; phone: string; appRole: string; isBlocked: boolean; createdAt: string }>; error?: string }> {
+export interface AdminUserRow {
+  id: string;
+  displayName: string;
+  email: string | null;
+  avatarUrl: string | null;
+  authProvider: string;
+  appRole: string;
+  isBlocked: boolean;
+  createdAt: string;
+}
+
+export async function listAdminUsers(): Promise<{ items: AdminUserRow[]; error?: string }> {
   const { user, role, error } = await requireAdmin();
   if (!user || !role) return { items: [], error };
   const service = tryCreateServiceClient();
   if (!service) return { items: [], error: 'Service indisponible.' };
-  const { data, error: queryError } = await service.from('profiles').select('id, display_name, full_name, phone, app_role, is_blocked, created_at').order('created_at', { ascending: false }).limit(100);
-  if (queryError) return { items: [], error: queryError.message };
-  return { items: (data ?? []).map((row) => ({ id: row.id, displayName: row.display_name ?? row.full_name, phone: row.phone, appRole: row.app_role, isBlocked: row.is_blocked, createdAt: row.created_at })) };
+  const { data, error: queryError } = await service
+    .from('profiles')
+    .select('id, first_name, last_name, full_name, display_name, email, avatar_url, auth_provider, app_role, is_blocked, created_at')
+    .order('created_at', { ascending: false })
+    .limit(100);
+  if (queryError) return { items: [], error: 'Liste des utilisateurs indisponible.' };
+  return {
+    items: (data ?? []).map((row) => ({
+      id: row.id,
+      /* Même résolution que le reste de l'application : un modérateur doit retrouver
+         un membre par le nom qu'il voit dans l'interface, pas par un numéro. */
+      displayName: publicNameOf(row) ?? 'Utilisateur',
+      email: row.email ?? null,
+      avatarUrl: row.avatar_url ?? null,
+      authProvider: row.auth_provider ?? 'EMAIL',
+      appRole: row.app_role,
+      isBlocked: row.is_blocked,
+      createdAt: row.created_at,
+    })),
+  };
 }
 
 export async function listAdminObjects(): Promise<{ items: Array<{ id: string; title: string; status: string; citySlug: string; createdAt: string }>; error?: string }> {

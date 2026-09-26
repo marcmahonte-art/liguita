@@ -35,16 +35,23 @@ export const DESCRIPTION_PREVIEW_MAX = 120;
 /**
  * Champs interdits dans toute réponse réseau publique.
  * Ajouter ici une clé = la refuser dans `toPublicItem` et les tests.
+ *
+ * ⚠️ `first_name`, `last_name` et `auth_provider` y figurent depuis la refonte de
+ * l'identité : la protection ne repose pas sur le fait que personne ne sélectionne
+ * encore ces colonnes, mais sur le fait que le code ne **peut pas** les laisser passer.
  */
 export const FORBIDDEN_PUBLIC_KEYS = [
   'phone',
   'phone_number',
   'user_id',
   'finder_id',
+  'first_name',
+  'last_name',
   'full_name',
   'display_name',
   'avatar_url',
   'email',
+  'auth_provider',
   'address',
   'lat',
   'lng',

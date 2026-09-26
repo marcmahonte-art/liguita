@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
+import { resolveIdentity } from '../../lib/auth/identity';
 import { createClient } from '../../lib/supabase/server';
 import { getWallet } from '../actions/wallet';
 import { listMyNotifications } from '../actions/notifications';
@@ -27,16 +28,16 @@ export const metadata: Metadata = { title: 'Tableau de bord' };
 /**
  * Prénom affiché dans l'accueil.
  *
- * `null` — et non une chaîne de repli — quand le compte n'a renseigné ni nom ni
- * prénom : l'accueil affiche alors « Bonjour » seul, plutôt que « Bonjour, bonjour ».
+ * Passe par `resolveIdentity`, comme l'en-tête et le menu utilisateur : l'accueil ne
+ * doit pas dire « Jean » quand le reste de l'application affiche « Jean Dupont ».
+ *
+ * `null` — et non une chaîne de repli — quand le compte n'a renseigné aucun nom :
+ * l'accueil affiche alors « Bonjour » seul.
  */
-function firstNameOf(profile: {
-  display_name: string | null;
-  full_name: string | null;
-} | null): string | null {
-  const source = profile?.display_name ?? profile?.full_name ?? '';
-  const [first] = source.trim().split(/\s+/);
-  return first || null;
+function firstNameOf(
+  profile: Parameters<typeof resolveIdentity>[0] | null,
+): string | null {
+  return resolveIdentity(profile).firstName;
 }
 
 /**
@@ -63,7 +64,7 @@ export default async function DashboardPage() {
     await Promise.all([
       supabase
         .from('profiles')
-        .select('display_name, full_name')
+        .select('first_name, last_name, full_name, display_name, email')
         .eq('id', user.id)
         .maybeSingle(),
       getWallet(),

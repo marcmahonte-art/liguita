@@ -12,10 +12,11 @@ import {
 } from 'react';
 
 import { createClient } from '../supabase/client';
+import { resolveIdentity, type Identity } from './identity';
 
 /**
  * Profil métier lu dans la table `profiles`.
- * Champs alignés sur la migration `20260923000500_profiles.sql`.
+ * Champs alignés sur les migrations `20260923000500` et `20260923003100`.
  */
 export interface AuthProfile {
   id: string;
@@ -27,9 +28,13 @@ export interface AuthProfile {
   whatsapp_verified: boolean;
   airtel_number: string | null;
   airtel_verified: boolean;
+  first_name: string | null;
+  last_name: string | null;
   full_name: string | null;
   display_name: string | null;
   avatar_url: string | null;
+  /** `EMAIL`, `GOOGLE` ou `PHONE`. Jamais modifiable par l'utilisateur. */
+  auth_provider: string;
   country_code: string;
   city_slug: string | null;
   locale: string;
@@ -43,25 +48,46 @@ export interface AuthProfile {
   updated_at: string;
 }
 
+export interface SignUpInput {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  /** Facultatif : destination des retraits, complétable plus tard sur le profil. */
+  airtelNumber?: string;
+}
+
 interface AuthContextValue {
+  /** Ligne de `profiles`. `null` si personne n'est connecté. */
   user: AuthProfile | null;
+  /**
+   * Identité affichable, dérivée de `user`.
+   *
+   * ⚠️ C'est **cette** valeur que les composants doivent afficher. Elle passe par
+   * `resolveIdentity`, qui applique l'ordre de repli « nom → prénom → email →
+   * téléphone ». Lire `user.display_name` ou `user.phone` directement dans un
+   * composant, c'est reintroduire le bug que cette couche élimine.
+   */
+  identity: Identity | null;
   session: Session | null;
   isLoading: boolean;
   signInWithPassword: (
     email: string,
     password: string,
   ) => Promise<{ error: string | null }>;
-  signUpWithPassword: (input: {
-    email: string;
-    password: string;
-    fullName: string;
-    whatsappNumber: string;
-    airtelNumber: string;
-  }) => Promise<{ error: string | null; requiresConfirmation: boolean }>;
+  signInWithGoogle: (redirectTo?: string) => Promise<{ error: string | null }>;
+  signUpWithPassword: (
+    input: SignUpInput,
+  ) => Promise<{ error: string | null; requiresConfirmation: boolean }>;
+  /** Recharge le profil — après une édition, ou après le retour de Google. */
+  refreshProfile: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+/** Route qui échange le code OAuth contre une session. */
+const OAUTH_CALLBACK_PATH = '/auth/callback';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const supabase = useMemo(() => createClient(), []);
@@ -71,15 +97,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadProfile = useCallback(
     async (userId: string) => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
-      setUser((data as AuthProfile | null) ?? null);
+      /* Le déclencheur `handle_new_user` crée la ligne dans la transaction
+         d'inscription. Le client peut toutefois l'interroger une fraction de seconde
+         avant : on réessaie une fois plutôt que d'afficher « Mon compte » à un
+         utilisateur qui vient de s'inscrire. */
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle();
+        if (data) {
+          setUser(data as AuthProfile);
+          return;
+        }
+        if (attempt === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 250));
+        }
+      }
+      setUser(null);
     },
     [supabase],
   );
+
+  const refreshProfile = useCallback(async () => {
+    const {
+      data: { user: current },
+    } = await supabase.auth.getUser();
+    if (current) await loadProfile(current.id);
+  }, [supabase, loadProfile]);
 
   useEffect(() => {
     let cancelled = false;
@@ -95,11 +141,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, next) => {
+    } = supabase.auth.onAuthStateChange((_event, next) => {
       if (cancelled) return;
       setSession(next);
       if (next?.user) {
-        await loadProfile(next.user.id);
+        /* ⚠️ Différé d'un tick : interroger Supabase *à l'intérieur* de
+           `onAuthStateChange` peut s'interbloquer avec le verrou interne du client.
+           Le rappel lui-même est synchrone, le rechargement ne l'est pas. */
+        const userId = next.user.id;
+        setTimeout(() => {
+          if (!cancelled) void loadProfile(userId);
+        }, 0);
       } else {
         setUser(null);
       }
@@ -123,32 +175,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [supabase],
   );
 
+  const signInWithGoogle = useCallback(
+    async (redirectTo = '/app') => {
+      /* Le chemin de retour est transmis dans l'URL de rappel, jamais dans un
+         paramètre du fournisseur : Google n'accepterait pas une URL arbitraire. Il
+         est revalidé côté serveur avant toute redirection. */
+      const callback = new URL(OAUTH_CALLBACK_PATH, window.location.origin);
+      callback.searchParams.set('redirect', redirectTo);
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: callback.toString() },
+      });
+      return { error: error?.message ?? null };
+    },
+    [supabase],
+  );
+
   const signUpWithPassword = useCallback(
-    async (input: {
-      email: string;
-      password: string;
-      fullName: string;
-      whatsappNumber: string;
-      airtelNumber: string;
-    }) => {
-      const whatsappDigits = input.whatsappNumber.replace(/\D/g, '');
-      const airtelDigits = input.airtelNumber.replace(/\D/g, '');
+    async ({ email, password, firstName, lastName, airtelNumber }: SignUpInput) => {
+      const airtelDigits = (airtelNumber ?? '').replace(/\D/g, '');
       if (
-        input.fullName.trim().length < 2 ||
-        input.password.length < 8 ||
-        whatsappDigits.length < 8 ||
-        airtelDigits.length < 8
+        firstName.trim().length < 1 ||
+        lastName.trim().length < 1 ||
+        password.length < 8 ||
+        !/^\S+@\S+\.\S+$/.test(email.trim())
       ) {
-        return { error: 'Nom, mot de passe et deux numéros valides sont requis.', requiresConfirmation: false };
+        return {
+          error: 'Prénom, nom, email et mot de passe (8 caractères minimum) sont requis.',
+          requiresConfirmation: false,
+        };
       }
+      if (airtelNumber && airtelNumber.trim() !== '' && airtelDigits.length < 8) {
+        return { error: 'Le numéro Airtel Money saisi est incomplet.', requiresConfirmation: false };
+      }
+
+      const fullName = `${firstName.trim()} ${lastName.trim()}`;
       const { data, error } = await supabase.auth.signUp({
-        email: input.email.trim().toLowerCase(),
-        password: input.password,
+        email: email.trim().toLowerCase(),
+        password,
         options: {
+          /* Le déclencheur `apply_user_identity` lit ces clés. Les conventions de
+             Google (`given_name`, `family_name`, `full_name`, `picture`) sont aussi
+             acceptées, pour qu'une même fonction serve les deux chemins. */
           data: {
-            full_name: input.fullName.trim(),
-            whatsapp_number: input.whatsappNumber.trim(),
-            airtel_number: input.airtelNumber.trim(),
+            first_name: firstName.trim(),
+            last_name: lastName.trim(),
+            full_name: fullName,
+            ...(airtelNumber?.trim()
+              ? { airtel_number: airtelNumber.trim() }
+              : {}),
           },
         },
       });
@@ -168,9 +243,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
   }, [supabase]);
 
+  const identity = useMemo(() => (user ? resolveIdentity(user) : null), [user]);
+
   const value = useMemo(
-    () => ({ user, session, isLoading, signInWithPassword, signUpWithPassword, signOut }),
-    [user, session, isLoading, signInWithPassword, signUpWithPassword, signOut],
+    () => ({
+      user,
+      identity,
+      session,
+      isLoading,
+      signInWithPassword,
+      signInWithGoogle,
+      signUpWithPassword,
+      refreshProfile,
+      signOut,
+    }),
+    [
+      user,
+      identity,
+      session,
+      isLoading,
+      signInWithPassword,
+      signInWithGoogle,
+      signUpWithPassword,
+      refreshProfile,
+      signOut,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

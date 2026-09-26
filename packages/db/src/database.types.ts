@@ -12,6 +12,8 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type AppRole = 'USER' | 'BUSINESS' | 'MODERATOR' | 'ADMIN';
+/** Méthode de connexion réellement utilisée. Jamais modifiable par l'utilisateur. */
+export type AuthProvider = 'EMAIL' | 'GOOGLE' | 'PHONE';
 export type OrgRole = 'OWNER' | 'ADMIN' | 'MANAGER' | 'AGENT' | 'READONLY';
 export type ReportReason = 'FAKE_FOUND_ITEM' | 'FAKE_OWNER' | 'FAKE_PAYMENT' | 'DUPLICATE_CLAIM' | 'OFF_PLATFORM_SOLICITATION' | 'INAPPROPRIATE_CONTENT' | 'OTHER';
 
@@ -38,9 +40,18 @@ export interface Profile {
   id: string;
   phone: string;
   phone_verified: boolean;
+  email: string | null;
+  email_verified: boolean;
+  whatsapp_number: string | null;
+  whatsapp_verified: boolean;
+  airtel_number: string | null;
+  airtel_verified: boolean;
+  first_name: string | null;
+  last_name: string | null;
   full_name: string | null;
   display_name: string | null;
   avatar_url: string | null;
+  auth_provider: AuthProvider;
   country_code: string;
   city_slug: string | null;
   locale: string;

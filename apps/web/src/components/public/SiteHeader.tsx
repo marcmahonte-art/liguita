@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { buttonClasses, cn } from '@liguita/ui';
 
 import { PUBLIC_NAV } from '../../lib/navigation';
+import { useAuth } from '../../lib/auth/auth-context';
 import { Logo } from '../brand/Logo';
 import { UserMenu } from './UserMenu';
 
@@ -24,6 +25,9 @@ import { UserMenu } from './UserMenu';
 export function SiteHeader() {
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  /* Le panneau mobile propose la même chose que la barre du haut : un lien « Connexion »
+     ne doit pas rester affiché à quelqu'un qui l'est déjà. */
+  const { identity, isLoading: authLoading } = useAuth();
 
   /* Toute navigation referme le panneau : sans cela, le menu resterait ouvert par-dessus
      la nouvelle page et l'utilisateur devrait le fermer lui-même. */
@@ -95,11 +99,13 @@ export function SiteHeader() {
                 </Link>
               </li>
             ))}
-            <li className="mt-2 sm:hidden">
-              <Link href="/connexion" className={buttonClasses({ variant: 'primary', block: true })}>
-                Connexion
-              </Link>
-            </li>
+            {!authLoading && !identity ? (
+              <li className="mt-2 sm:hidden">
+                <Link href="/connexion" className={buttonClasses({ variant: 'primary', block: true })}>
+                  Connexion
+                </Link>
+              </li>
+            ) : null}
           </ul>
         </nav>
       </div>

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 
+import { publicNameOf } from '../../lib/auth/identity';
 import { createClient } from '../../lib/supabase/server';
 import { tryCreateServiceClient } from '../../lib/supabase/service';
 import { isOffPlatformMessage } from '../../lib/moderation/message-safety';
@@ -101,7 +102,7 @@ export async function listMyConversations(): Promise<{
   );
   const { data: profiles } = await service
     .from('profiles')
-    .select('id, display_name, full_name')
+    .select('id, first_name, last_name, full_name, display_name')
     .in('id', Array.from(new Set(conversations.flatMap((row) => [row.owner_id, row.finder_id]))));
 
   const profileById = new Map((profiles ?? []).map((row) => [row.id, row]));
@@ -116,7 +117,7 @@ export async function listMyConversations(): Promise<{
         status: row.status,
         title: detail?.title ?? 'Objet',
         citySlug: detail?.citySlug ?? null,
-        counterpartName: profile?.display_name ?? profile?.full_name ?? null,
+        counterpartName: publicNameOf(profile),
         updatedAt: row.updated_at,
         returnScheduledAt: row.return_scheduled_at,
       };
@@ -168,7 +169,7 @@ export async function getConversation(
   const profileIds = Array.from(new Set(messages.map((message) => message.sender_id)));
   const { data: profiles } = await service
     .from('profiles')
-    .select('id, display_name, full_name')
+    .select('id, first_name, last_name, full_name, display_name')
     .in('id', profileIds);
   const profileById = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
   const detail = (await getMatchDetails([conversation.match_id], service)).get(
@@ -198,7 +199,7 @@ export async function getConversation(
           isMine: message.sender_id === user.id,
           senderName: message.is_system
             ? 'Liguita'
-            : (profile?.display_name ?? profile?.full_name ?? 'Membre'),
+            : (publicNameOf(profile) ?? 'Membre'),
           createdAt: message.created_at,
         };
       }),
@@ -259,7 +260,7 @@ export async function sendMessage(
 
   const { data: profile } = await service
     .from('profiles')
-    .select('display_name, full_name')
+    .select('first_name, last_name, full_name, display_name')
     .eq('id', user.id)
     .maybeSingle();
   return {
@@ -270,7 +271,7 @@ export async function sendMessage(
       isSystem: data.is_system,
       flagged: data.flagged,
       isMine: true,
-      senderName: profile?.display_name ?? profile?.full_name ?? 'Vous',
+      senderName: publicNameOf(profile) ?? 'Vous',
       createdAt: data.created_at,
     },
   };

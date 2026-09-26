@@ -1,4 +1,6 @@
 import { cn } from '../lib/cn';
+import { initialsOf } from '../lib/initials';
+import { AvatarImage } from './AvatarImage';
 
 export type AvatarSize = 'sm' | 'md' | 'lg';
 
@@ -20,14 +22,6 @@ const BACKGROUNDS = [
   'bg-warning-700',
 ] as const;
 
-export interface AvatarProps {
-  name: string;
-  /** Photo de profil. En cas d'échec de chargement, les initiales restent affichées. */
-  src?: string | null;
-  size?: AvatarSize;
-  className?: string;
-}
-
 /** Somme des codes de caractères — stable, sans dépendance à la locale. */
 function hash(value: string): number {
   let total = 0;
@@ -35,26 +29,30 @@ function hash(value: string): number {
   return total;
 }
 
-/**
- * Initiales : au plus deux lettres, sur les deux premiers mots du nom.
- * Un nom tchadien courant (« Mahamat Abakar Ali ») donne « MA », pas « MAA ».
- */
-export function initialsOf(name: string): string {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return '?';
-  const first = words[0]?.charAt(0) ?? '';
-  const second = words.length > 1 ? (words[1]?.charAt(0) ?? '') : '';
-  return `${first}${second}`.toUpperCase() || '?';
+export interface AvatarProps {
+  name: string;
+  /**
+   * Photo de profil — typiquement celle fournie par Google.
+   *
+   * Pas de photo : les initiales du nom sont dessinées. Photo illisible : même repli.
+   * Voir `<AvatarImage />`.
+   */
+  src?: string | null;
+  size?: AvatarSize;
+  className?: string;
 }
 
 /**
  * Avatar.
  *
- * ⚠️ Accessibilité : le nom complet est toujours exposé (`title` + texte lisible),
+ * ⚠️ Ce composant est rendu au serveur : `<Avatar />` n'a pas de `'use client'`, et
+ * seul son enfant `<AvatarImage />` en a un. Il reste donc utilisable depuis une page
+ * ou un composant serveur.
+ *
+ * ⚠️ Accessibilité : le nom complet est toujours exposé (`title` + texte alternatif),
  * jamais remplacé par la seule pastille colorée.
  */
 export function Avatar({ name, src, size = 'md', className }: AvatarProps) {
-  const initials = initialsOf(name);
   const background = BACKGROUNDS[hash(name) % BACKGROUNDS.length] ?? BACKGROUNDS[0];
 
   return (
@@ -69,10 +67,9 @@ export function Avatar({ name, src, size = 'md', className }: AvatarProps) {
       )}
     >
       {src ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt={name} className="h-full w-full object-cover" />
+        <AvatarImage name={name} src={src} />
       ) : (
-        <span aria-hidden="true">{initials}</span>
+        <span aria-hidden="true">{initialsOf(name)}</span>
       )}
     </span>
   );

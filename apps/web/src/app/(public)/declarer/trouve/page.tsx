@@ -52,7 +52,7 @@ const INITIAL_FORM: FoundDraft = {
 
 export default function DeclareFoundItemPage() {
   const router = useRouter();
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, identity, isLoading: authLoading } = useAuth();
   const {
     value: formData,
     update,
@@ -488,8 +488,8 @@ export default function DeclareFoundItemPage() {
               3. Mise en relation
             </h2>
             <p className="text-caption text-ink-600">
-              Vos coordonnées ({user.display_name || user.full_name || user.phone ? `+${user.phone}` : 'profil'}) sont
-              déjà enregistrées. Elles ne seront partagées qu&apos;avec le propriétaire
+              Les coordonnées de {identity?.displayName ?? 'votre profil'} sont déjà
+              enregistrées. Elles ne seront partagées qu&apos;avec le propriétaire
               vérifié, après validation de sa preuve de propriété.
             </p>
           </div>

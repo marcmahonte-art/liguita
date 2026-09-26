@@ -45,9 +45,12 @@ const SAMPLE_RAW_ROW: FoundItemLike = {
   phone: '+23566123456',
   phone_number: '+23566123456',
   full_name: 'Moussa Abdelkerim',
+  first_name: 'Moussa',
+  last_name: 'Abdelkerim',
   display_name: 'Moussa A.',
   avatar_url: 'https://cdn.example.com/avatars/moussa.png',
   email: 'moussa@example.com',
+  auth_provider: 'GOOGLE',
   address: 'Quartier Farcha, N’Djamena',
   lat: 12.114,
   lng: 15.057,
@@ -87,6 +90,9 @@ describe('toPublicItem', () => {
     expect(json).not.toContain('+23566123456');
     expect(json).not.toContain('Moussa Abdelkerim');
     expect(json).not.toContain('moussa@example.com');
+    /* La méthode de connexion est une information technique : rien à voir dans une
+       réponse publique. */
+    expect(json).not.toContain('GOOGLE');
     expect(json).not.toContain(SAMPLE_RAW_ROW.finder_id as string);
     expect(json).not.toContain(SAMPLE_RAW_ROW.user_id as string);
     expect(json).not.toContain('12.114');

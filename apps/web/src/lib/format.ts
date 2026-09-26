@@ -65,6 +65,9 @@ export function daysBetween(fromIso: string, toIso: string): number {
 
 /**
  * Initiales d'un nom complet, au plus deux lettres.
- * Délègue à `@liguita/ui` : la même règle sert au composant `<Avatar />`.
+ *
+ * Réexporté depuis `@liguita/ui` — module neutre, donc utilisable depuis un composant
+ * serveur comme depuis un composant client. C'est la même règle que celle du composant
+ * `<Avatar />` : une seule définition, deux points d'usage.
  */
 export { initialsOf } from '@liguita/ui';

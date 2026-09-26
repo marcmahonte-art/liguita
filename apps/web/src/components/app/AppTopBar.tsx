@@ -1,26 +1,16 @@
 'use client';
 
-import { Bell, ChevronDown, LogOut, Menu, Search, User, X } from 'lucide-react';
+import { Bell, Menu, Search, X } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
-import { Avatar, buttonClasses, cn } from '@liguita/ui';
+import { buttonClasses, cn } from '@liguita/ui';
 import { formatMoney } from '@liguita/core/pricing';
 
-import { useAuth } from '../../lib/auth/auth-context';
 import { APP_NAV, APP_NAV_SECONDARY, isNavItemActive } from '../../lib/navigation';
+import { AccountMenu } from '../auth/AccountMenu';
 import { Logo } from '../brand/Logo';
-
-function displayNameOf(profile: {
-  display_name: string | null;
-  full_name: string | null;
-  phone: string;
-}): string {
-  if (profile.display_name) return profile.display_name;
-  if (profile.full_name) return profile.full_name;
-  return profile.phone ? `+${profile.phone}` : 'Mon compte';
-}
 
 export interface AppTopBarProps {
   /** Nombre de notifications non lues — pastille sur la cloche. */
@@ -33,51 +23,25 @@ export interface AppTopBarProps {
  * Barre supérieure de l'espace connecté.
  *
  * Trois zones, une seule ligne : identité à gauche, recherche au centre, compte à droite.
- * La recherche est ici — et nulle part ailleurs dans la coquille — parce que c'est
+ * La recherche est ici — et nullepart ailleurs dans la coquille — parce que c'est
  * l'action que l'on doit pouvoir lancer depuis n'importe quel écran sans y penser.
  *
  * Le logo n'apparaît que sous `lg` : au-delà, la barre latérale porte déjà l'identité,
  * et deux logos sur un même écran sont deux fois la même information.
+ *
+ * ⚠️ Le menu du compte n'est pas écrit ici : c'est `<AccountMenu />`, le même composant
+ * que celui de l'en-tête public. Les deux surfaces affichent le même nom, parce qu'elles
+ * lisent la même valeur.
  */
 export function AppTopBar({ unreadCount, availableBalance }: AppTopBarProps) {
-  const { user, signOut } = useAuth();
   const pathname = usePathname();
-  const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isAccountOpen, setIsAccountOpen] = useState(false);
-  const accountRef = useRef<HTMLDivElement>(null);
 
   /* La navigation change de page : tout ce qui est ouvert doit se refermer, sinon le
      menu survit à la page que l'utilisateur vient de quitter. */
   useEffect(() => {
     setIsMenuOpen(false);
-    setIsAccountOpen(false);
   }, [pathname]);
-
-  /* Clic extérieur : ferme le menu compte sans empiler un calque invisible sur la page. */
-  useEffect(() => {
-    if (!isAccountOpen) return;
-    function onPointerDown(event: MouseEvent) {
-      if (!accountRef.current?.contains(event.target as Node)) setIsAccountOpen(false);
-    }
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') setIsAccountOpen(false);
-    }
-    document.addEventListener('mousedown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [isAccountOpen]);
-
-  async function handleSignOut() {
-    await signOut();
-    router.push('/');
-    router.refresh();
-  }
-
-  const name = user ? displayNameOf(user) : '';
 
   return (
     <header className="sticky top-0 z-30 border-b border-ink-200 bg-white/95 backdrop-blur-sm">
@@ -181,60 +145,11 @@ export function AppTopBar({ unreadCount, availableBalance }: AppTopBarProps) {
             ) : null}
           </Link>
 
-          {user ? (
-            <div className="relative" ref={accountRef}>
-              <button
-                type="button"
-                onClick={() => setIsAccountOpen((open) => !open)}
-                aria-expanded={isAccountOpen}
-                aria-haspopup="menu"
-                className={cn(
-                  buttonClasses({ variant: 'ghost', size: 'sm' }),
-                  '!min-h-[44px] gap-2 !px-1.5',
-                )}
-              >
-                <Avatar name={name} src={user.avatar_url} size="sm" className="size-7 text-2xs" />
-                <span className="hidden max-w-24 truncate text-body font-bold text-ink-900 md:inline">
-                  {name}
-                </span>
-                <ChevronDown size={16} aria-hidden className="hidden text-ink-400 md:inline" />
-                <span className="sr-only">Ouvrir le menu du compte</span>
-              </button>
-
-              {isAccountOpen ? (
-                <div
-                  role="menu"
-                  className="absolute right-0 top-[calc(100%+8px)] z-40 w-60 overflow-hidden rounded-xl border border-ink-200 bg-white p-1 shadow-200"
-                >
-                  <div className="flex items-center gap-3 rounded-lg px-3 py-2">
-                    <Avatar name={name} src={user.avatar_url} size="sm" />
-                    <div className="min-w-0">
-                      <p className="truncate font-display text-body font-bold text-ink-950">{name}</p>
-                      <p className="truncate text-caption text-ink-500">{user.email}</p>
-                    </div>
-                  </div>
-                  <div className="my-1 h-px bg-ink-100" aria-hidden />
-                  <Link
-                    href="/app/profil"
-                    role="menuitem"
-                    className="flex min-h-[44px] items-center gap-3 rounded-lg px-3 text-body font-bold text-ink-800 transition-colors hover:bg-ink-50"
-                  >
-                    <User size={17} aria-hidden />
-                    Mon profil
-                  </Link>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={handleSignOut}
-                    className="flex min-h-[44px] w-full items-center gap-3 rounded-lg px-3 text-left text-body font-bold text-ink-800 transition-colors hover:bg-ink-50"
-                  >
-                    <LogOut size={17} aria-hidden />
-                    Se déconnecter
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
+          <AccountMenu
+            align="right"
+            triggerClassName="!min-h-[44px]"
+            showNameClassName="hidden max-w-24 truncate md:inline"
+          />
         </div>
       </div>
 

@@ -1,6 +1,8 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
+import { safeRedirectPath } from '../auth/redirect';
+
 /**
  * Rafraîchit la session Supabase à chaque requête (middleware Next.js).
  *
@@ -56,8 +58,11 @@ export async function updateSession(request: NextRequest) {
   // L'utilisateur connecté n'a pas besoin de la page de connexion.
   if (user && (pathname === '/connexion' || pathname === '/inscription')) {
     const url = request.nextUrl.clone();
-    const redirect = request.nextUrl.searchParams.get('redirect');
-    url.pathname = redirect && redirect.startsWith('/') ? redirect : '/';
+    // ⚠️ Même garde que la page de connexion et que le rappel OAuth. Un simple
+    // `startsWith('/')` laisserait passer `//evil.example`, que le navigateur lit
+    // comme une URL absolue : depuis la page de connexion, la redirection ouverte
+    // partirait d'un site de restitution d'objets perdus.
+    url.pathname = safeRedirectPath(request.nextUrl.searchParams.get('redirect'), '/');
     url.search = '';
     return NextResponse.redirect(url);
   }

@@ -22,6 +22,7 @@ import { buttonClasses, Combobox, Select, cn } from '@liguita/ui';
 import { declareLostItem } from '../../../actions/declare-lost';
 import { ItemPhotoUploader } from '../../../../components/app/ItemPhotoUploader';
 import { useAuth } from '../../../../lib/auth/auth-context';
+import { formatPhone } from '../../../../lib/auth/identity';
 import { useDraft } from '../../../../lib/hooks/use-draft';
 
 const STORAGE_KEY = 'liguita_draft_lost_item';
@@ -56,7 +57,7 @@ const INITIAL_FORM: LostDraft = {
 
 export default function DeclareLostItemPage() {
   const router = useRouter();
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, identity, isLoading: authLoading } = useAuth();
   const { value: formData, update, isSaved: isSavedLocally, clearDraft } =
     useDraft<LostDraft>(STORAGE_KEY, INITIAL_FORM);
 
@@ -237,7 +238,7 @@ export default function DeclareLostItemPage() {
                   <p className="font-bold">Vous serez alerté par SMS</p>
                   <p>
                     Dès qu&apos;un objet similaire est signalé, vous recevrez une alerte au{' '}
-                    {user.phone ? `+${user.phone}` : 'numéro de votre profil'}.
+                    {formatPhone(user.phone, user.country_code) ?? 'numéro de votre profil'}.
                   </p>
                 </div>
               </div>
@@ -543,8 +544,8 @@ export default function DeclareLostItemPage() {
               <div className="flex items-start gap-3 rounded-2xl border border-ink-200 bg-ink-50 p-4 text-caption text-ink-700">
                 <ShieldCheck size={20} className="mt-0.5 shrink-0 text-emerald-600" />
                 <p>
-                  Vos coordonnées ({user.display_name || user.full_name || user.phone}) viennent
-                  de votre profil. Liguita surveille les objets trouvés et vous alerte par SMS
+                  Les coordonnées de {identity?.displayName ?? 'votre profil'} sont
+                  enregistrées. Liguita surveille les objets trouvés et vous alerte par SMS
                   dès qu&apos;une correspondance est détectée.
                 </p>
               </div>

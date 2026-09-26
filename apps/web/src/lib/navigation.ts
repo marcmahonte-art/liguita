@@ -19,6 +19,7 @@ import {
   Megaphone,
   Package,
   Search,
+  Settings,
   User,
   Wallet,
 } from 'lucide-react';
@@ -82,16 +83,22 @@ export const APP_NAV: readonly NavItem[] = [
 ];
 
 /**
- * Pied de la barre latérale : aide et profil.
+ * Pied de la barre latérale : aide, profil et paramètres.
  *
  * Séparés visuellement du reste. L'aide n'est pas une section du produit, c'est une
  * sortie de secours — la mêler aux entrées de travail la rendrait difficile à trouver
- * précisément au moment où on la cherche. Le profil, lui, est un réglage, pas une
- * destination de travail.
+ * précisément au moment où on la cherche. Le profil et les paramètres, eux, sont des
+ * réglages, pas des destinations de travail.
+ *
+ * ⚠️ « Paramètres » ne rejoue pas « Mon profil » : l'identité (prénom, nom, téléphone)
+ * s'édite à un seul endroit, sur `/app/profil`. Les paramètres regroupent ce qui n'est
+ * pas de l'identité — ville, langue, alertes. Deux pages qui éditent le même nom
+ * seraient deux systèmes de profil, et les deux finiraient par diverger.
  */
 export const APP_NAV_SECONDARY: readonly NavItem[] = [
   { href: '/help', label: 'Aide & support', icon: LifeBuoy },
   { href: '/app/profil', label: 'Mon profil', icon: User },
+  { href: '/app/parametres', label: 'Paramètres', icon: Settings },
 ];
 
 /**
