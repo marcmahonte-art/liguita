@@ -153,6 +153,7 @@ export const FOOTER_COLUMNS: readonly FooterColumn[] = [
   {
     title: 'Liguita',
     links: [
+      { href: '/connexion', label: 'Connexion' },
       { href: '/about', label: 'À propos' },
       { href: '/help', label: 'Aide & support' },
       { href: '/legal/cgu', label: 'Conditions générales' },

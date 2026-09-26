@@ -10,23 +10,22 @@ import { Avatar, buttonClasses, cn } from '@liguita/ui';
 import { useAuth } from '../../lib/auth/auth-context';
 
 /**
- * Menu utilisateur — en-tête public et barre supérieure de l'espace connecté.
+ * Menu utilisateur — barre supérieure de l'espace connecté.
  *
- * ⚠️ **Un seul composant pour les deux surfaces.** L'application avait deux menus de
- * compte, chacun avec sa propre fonction de résolution du nom : le premier affichait le
+ * ⚠️ **Un seul composant pour le produit.** L'application avait deux menus de compte,
+ * chacun avec sa propre fonction de résolution du nom : le premier affichait le
  * numéro de téléphone, le second l'email. Deux surfaces, deux règles, et l'utilisateur
- * voyait son identité changer en changeant de page. Les deux menus lisent désormais
- * `identity` du contexte — la même valeur, au même endroit, avec le même repli.
+ * voyait son identité changer en changeant de page. Le menu lit désormais `identity` du
+ * contexte — la même valeur, au même endroit, avec le même repli.
  *
  * Ce qui s'affiche : `[Avatar] Jean Dupont ▾`. Ni le numéro, ni l'email ne sont
  * l'information principale — ils appartiennent au menu déroulant, où l'on va les
  * chercher, et à la page « Mon profil », où l'on va les corriger.
+ *
+ * L'en-tête public n'affiche pas ce menu : la navigation publique ne présente que le
+ * service, et le compte s'y atteint par le panneau mobile ou le pied de page.
  */
 export interface AccountMenuProps {
-  /** Cote auquel le panneau se despleie. L'en-tête public est à gauche, la barre applicative à droite. */
-  align?: 'left' | 'right';
-  /** Aspect du déclencheur : `outline` sur l'en-tête public, `ghost` dans l'espace connecté. */
-  variant?: 'ghost' | 'outline';
   /** Taille de l'avatar du déclencheur. */
   avatarClassName?: string;
   /** Masque le nom sur les écrans étroits — il ne tient pas, et l'avatar suffit. */
@@ -38,8 +37,6 @@ export interface AccountMenuProps {
 }
 
 export function AccountMenu({
-  align = 'right',
-  variant = 'ghost',
   avatarClassName = 'size-7 text-2xs',
   showNameClassName = 'hidden max-w-32 truncate md:inline',
   loadingClassName = 'h-9 w-24',
@@ -97,7 +94,7 @@ export function AccountMenu({
         aria-expanded={isOpen}
         aria-haspopup="menu"
         aria-label="Ouvrir le menu du compte"
-        className={cn(buttonClasses({ variant, size: 'sm' }), 'gap-2 !px-1.5', triggerClassName)}
+        className={cn(buttonClasses({ variant: 'ghost', size: 'sm' }), 'gap-2 !px-1.5', triggerClassName)}
       >
         <Avatar name={name} src={identity.avatarUrl} size="sm" className={avatarClassName} />
         <span className={cn('text-body font-bold text-ink-900', showNameClassName)}>{name}</span>
@@ -107,10 +104,7 @@ export function AccountMenu({
       {isOpen ? (
         <div
           role="menu"
-          className={cn(
-            'absolute top-[calc(100%+8px)] z-40 w-64 overflow-hidden rounded-xl border border-ink-200 bg-white p-1 shadow-200',
-            align === 'right' ? 'right-0' : 'left-0',
-          )}
+          className="absolute top-[calc(100%+8px)] right-0 z-40 w-64 overflow-hidden rounded-xl border border-ink-200 bg-white p-1 shadow-200"
         >
           {/* Identité — le nom d'abord, l'email en second. */}
           <div className="flex items-center gap-3 rounded-lg px-3 py-2">

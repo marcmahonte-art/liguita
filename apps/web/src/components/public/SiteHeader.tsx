@@ -1,8 +1,8 @@
 'use client';
 
-import { Menu, X } from 'lucide-react';
+import { LogOut, Menu, User, X } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { buttonClasses, cn } from '@liguita/ui';
@@ -10,7 +10,6 @@ import { buttonClasses, cn } from '@liguita/ui';
 import { PUBLIC_NAV } from '../../lib/navigation';
 import { useAuth } from '../../lib/auth/auth-context';
 import { Logo } from '../brand/Logo';
-import { UserMenu } from './UserMenu';
 
 /**
  * En-tête du site public.
@@ -21,19 +20,38 @@ import { UserMenu } from './UserMenu';
  * `globals.css` impose `min-height: 48px` à tous les boutons : c'est un plancher
  * d'accessibilité tactile, décidé pour un usage à une main sur téléphone d'entrée de
  * gamme. Un bouton à 44 px serait de toute façon ramené à 48 px par cette règle.
+ *
+ * ⚠️ **Aucun menu de compte dans la barre du haut.** La navigation publique présente le
+ * service — rechercher, objets perdus, objets trouvés, entreprises — et rien d'autre.
+ * Le bouton `[Avatar] Jean Dupont ▾` y mêlait l'identité du visiteur à des liens qui ne
+ * lui appartiennent pas, et sur une longue liste d'annonces il concurrençait le titre
+ * de la page.
+ *
+ * L'accès au compte reste possible par deux voies, qui sont celles qui comptent :
+ *   * le panneau mobile ci-dessous, qui suit l'état de session ;
+ *   * le pied de page, pour qui n'a pas de compte.
+ * Dans l'espace connecté, c'est `<AccountMenu />` dans `AppTopBar` — le menu du compte
+ * n'a donc toujours qu'une seule implémentation.
  */
 export function SiteHeader() {
   const pathname = usePathname();
+  const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  /* Le panneau mobile propose la même chose que la barre du haut : un lien « Connexion »
-     ne doit pas rester affiché à quelqu'un qui l'est déjà. */
-  const { identity, isLoading: authLoading } = useAuth();
+  /* Le panneau mobile suit la session : « Connexion » disparaît une fois connecté, et
+     le profil et la déconnexion apparaissent. */
+  const { identity, isLoading: authLoading, signOut } = useAuth();
 
   /* Toute navigation referme le panneau : sans cela, le menu resterait ouvert par-dessus
      la nouvelle page et l'utilisateur devrait le fermer lui-même. */
   useEffect(() => {
     setIsMenuOpen(false);
   }, [pathname]);
+
+  async function handleSignOut() {
+    await signOut();
+    router.push('/');
+    router.refresh();
+  }
 
   return (
     <header className="sticky top-0 z-40 border-b border-ink-200 bg-white/95 backdrop-blur-sm">
@@ -65,20 +83,16 @@ export function SiteHeader() {
           </ul>
         </nav>
 
-        <div className="flex items-center gap-2">
-          <UserMenu />
-
-          <button
-            type="button"
-            onClick={() => setIsMenuOpen((open) => !open)}
-            aria-expanded={isMenuOpen}
-            aria-controls="menu-mobile"
-            aria-label={isMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
-            className="inline-flex size-12 items-center justify-center rounded-lg text-ink-900 hover:bg-ink-100 lg:hidden"
-          >
-            {isMenuOpen ? <X aria-hidden size={24} /> : <Menu aria-hidden size={24} />}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setIsMenuOpen((open) => !open)}
+          aria-expanded={isMenuOpen}
+          aria-controls="menu-mobile"
+          aria-label={isMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+          className="inline-flex size-12 items-center justify-center rounded-lg text-ink-900 hover:bg-ink-100 lg:hidden"
+        >
+          {isMenuOpen ? <X aria-hidden size={24} /> : <Menu aria-hidden size={24} />}
+        </button>
       </div>
 
       {/* Panneau mobile */}
@@ -100,11 +114,38 @@ export function SiteHeader() {
               </li>
             ))}
             {!authLoading && !identity ? (
-              <li className="mt-2 sm:hidden">
+              <li className="mt-2">
                 <Link href="/connexion" className={buttonClasses({ variant: 'primary', block: true })}>
                   Connexion
                 </Link>
               </li>
+            ) : null}
+
+            {/* Connecté : le compte, qui n'est plus dans la barre du haut. Le nom vient
+                de `identity`, donc il ne peut pas différer de celui du menu de l'espace
+                connecté. */}
+            {!authLoading && identity ? (
+              <>
+                <li className="mt-2 border-t border-ink-100 pt-2">
+                  <Link
+                    href="/app/profil"
+                    className="flex min-h-[52px] items-center gap-3 rounded-lg px-3 font-display text-body-lg font-bold text-ink-900 hover:bg-ink-50"
+                  >
+                    <User aria-hidden size={18} className="text-ink-500" />
+                    {identity.displayName}
+                  </Link>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => void handleSignOut()}
+                    className="flex min-h-[52px] w-full items-center gap-3 rounded-lg px-3 text-left font-display text-body-lg font-bold text-ink-900 hover:bg-ink-50"
+                  >
+                    <LogOut aria-hidden size={18} className="text-ink-500" />
+                    Se déconnecter
+                  </button>
+                </li>
+              </>
             ) : null}
           </ul>
         </nav>

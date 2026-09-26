@@ -29,9 +29,9 @@ export interface AppTopBarProps {
  * Le logo n'apparaît que sous `lg` : au-delà, la barre latérale porte déjà l'identité,
  * et deux logos sur un même écran sont deux fois la même information.
  *
- * ⚠️ Le menu du compte n'est pas écrit ici : c'est `<AccountMenu />`, le même composant
- * que celui de l'en-tête public. Les deux surfaces affichent le même nom, parce qu'elles
- * lisent la même valeur.
+ * ⚠️ Le menu du compte n'est pas écrit ici : c'est `<AccountMenu />`, le seul composant
+ * du produit pour cette fonction. Il ne sert que la barre supérieure de l'espace
+ * connecté — l'en-tête public n'affiche pas de menu de compte.
  */
 export function AppTopBar({ unreadCount, availableBalance }: AppTopBarProps) {
   const pathname = usePathname();
@@ -146,7 +146,6 @@ export function AppTopBar({ unreadCount, availableBalance }: AppTopBarProps) {
           </Link>
 
           <AccountMenu
-            align="right"
             triggerClassName="!min-h-[44px]"
             showNameClassName="hidden max-w-24 truncate md:inline"
           />
