@@ -1,17 +1,18 @@
 'use client';
 
-import { ArrowLeft, Info, Lock, Send } from 'lucide-react';
+import { ArrowLeft, Camera, CreditCard, FileCheck2, Info, LoaderCircle, Lock, Send } from 'lucide-react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
 
 import { VerificationEvidenceUploader } from '../../../../../components/app/VerificationEvidenceUploader';
-import { Alert, buttonClasses, Input, Select, Skeleton } from '@liguita/ui';
+import { Alert, buttonClasses, cn, Input, Select, Skeleton } from '@liguita/ui';
 
 import {
   getVerificationState,
   saveFoundSecrets,
   submitVerificationAnswers,
+  uploadClaimantIdCard,
   type VerificationQuestionView,
   type VerificationState,
 } from '../../../../actions/verification';
@@ -66,7 +67,6 @@ function QuestionField({
 
 export default function VerificationPage() {
   const params = useParams<{ id: string }>();
-  const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
   const matchId = params.id;
 
@@ -75,6 +75,11 @@ export default function VerificationPage() {
   const [error, setError] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [secrets, setSecrets] = useState<Record<string, string>>({});
+  const [idCardPath, setIdCardPath] = useState<string | null>(null);
+  const [idCardPreview, setIdCardPreview] = useState<string | null>(null);
+  const [isUploadingId, setIsUploadingId] = useState(false);
+  const [idCardError, setIdCardError] = useState<string | null>(null);
+
   const [result, setResult] = useState<{
     outcome?: 'APPROVED' | 'UNDER_REVIEW' | 'REJECTED';
     message: string;
@@ -98,8 +103,33 @@ export default function VerificationPage() {
     };
   }, [user, authLoading, matchId]);
 
+  async function handleIdCardFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setIdCardError(null);
+    setIsUploadingId(true);
+    const formData = new FormData();
+    formData.set('matchId', matchId);
+    formData.set('idCard', file);
+    const res = await uploadClaimantIdCard(formData);
+    setIsUploadingId(false);
+    if (!res.ok) {
+      setIdCardError(res.error ?? 'Échec du téléversement de la pièce d’identité.');
+      return;
+    }
+    setIdCardPath(res.path ?? null);
+    setIdCardPreview(res.signedUrl ?? URL.createObjectURL(file));
+  }
+
   function handleSubmit() {
     if (!state) return;
+
+    if (!idCardPath) {
+      setError('Veuillez ajouter une photo lisible de votre pièce d’identité (CNI, Passeport ou Permis) pour sécuriser votre demande.');
+      return;
+    }
+
     const missing = state.questions.filter((q) => q.isRequired && !answers[q.id]?.trim());
     if (missing.length > 0) {
       setError('Veuillez répondre à toutes les questions obligatoires.');
@@ -110,7 +140,7 @@ export default function VerificationPage() {
       const payload = state.questions
         .filter((q) => answers[q.id]?.trim())
         .map((q) => ({ questionId: q.id, value: (answers[q.id] ?? '').trim() }));
-      const res = await submitVerificationAnswers(matchId, payload);
+      const res = await submitVerificationAnswers(matchId, payload, idCardPath);
       if (!res.ok) {
         setError(res.error ?? 'Échec de la soumission.');
         return;
@@ -119,13 +149,13 @@ export default function VerificationPage() {
         setResult({
           outcome: 'APPROVED',
           tone: 'success',
-          message: 'Vérification approuvée. Vous pouvez passer au devis et au paiement.',
+          message: 'Vérification et identité validées avec succès ! Vous pouvez maintenant passer au règlement sécurisé.',
         });
       } else if (res.outcome === 'UNDER_REVIEW') {
         setResult({
           outcome: 'UNDER_REVIEW',
           tone: 'info',
-           message: 'Réponses enregistrées. Un modérateur va les examiner.',
+          message: 'Réponses enregistrées. Un modérateur va les examiner.',
         });
       } else {
         const remaining = res.attemptsRemaining ?? 0;
@@ -327,12 +357,75 @@ export default function VerificationPage() {
           </div>
 
           <form
-            className="space-y-4"
+            className="space-y-5"
             onSubmit={(e) => {
               e.preventDefault();
               handleSubmit();
             }}
           >
+            {/* Section pièce d'identité demandeur */}
+            <div className="rounded-xl border border-brand-200 bg-brand-50/50 p-4">
+              <div className="flex items-center gap-2">
+                <CreditCard size={20} className="text-brand-700" />
+                <h3 className="font-display text-body font-bold text-ink-950">
+                  Votre pièce d’identité (CNI / Passeport / Permis) *
+                </h3>
+              </div>
+              <p className="mt-1 text-caption text-ink-600">
+                Pour prévenir toute usurpation et sécuriser la restitution, veuillez joindre une photo lisible de votre pièce d’identité. Ces informations permettent de vous identifier en cas de litige et restent strictement confidentielles.
+              </p>
+
+              {idCardPreview ? (
+                <div className="mt-3 flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+                  <div className="relative size-14 shrink-0 overflow-hidden rounded-md border border-ink-200 bg-white">
+                    <img src={idCardPreview} alt="Aperçu de la pièce d'identité" className="size-full object-cover" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-caption font-bold text-emerald-800 flex items-center gap-1">
+                      <FileCheck2 size={15} /> Pièce d'identité jointe
+                    </p>
+                    <label className="mt-1 inline-block cursor-pointer text-2xs font-semibold text-brand-700 hover:underline">
+                      Changer la photo
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleIdCardFile}
+                        disabled={isUploadingId || isPending}
+                        className="sr-only"
+                      />
+                    </label>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-3">
+                  <label
+                    className={cn(
+                      buttonClasses({ variant: 'outline', size: 'sm' }),
+                      'cursor-pointer gap-2',
+                      isUploadingId && 'opacity-60 pointer-events-none',
+                    )}
+                  >
+                    {isUploadingId ? <LoaderCircle size={16} className="animate-spin" /> : <Camera size={16} />}
+                    {isUploadingId ? 'Téléversement en cours…' : 'Prendre en photo ou choisir un fichier'}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handleIdCardFile}
+                      disabled={isUploadingId || isPending}
+                      className="sr-only"
+                    />
+                  </label>
+                </div>
+              )}
+
+              {idCardError ? (
+                <p role="alert" className="mt-2 text-caption text-danger-700">
+                  {idCardError}
+                </p>
+              ) : null}
+            </div>
+
             {state.questions.map((q, index) => (
               <div key={q.id}>
                 <p className="mb-2 text-caption font-bold text-ink-500">Question {index + 1}</p>
@@ -347,10 +440,10 @@ export default function VerificationPage() {
 
             <button
               type="submit"
-              disabled={isPending}
+              disabled={isPending || isUploadingId}
               className={buttonClasses({ variant: 'primary', block: true })}
             >
-              <Send size={16} /> Envoyer mes réponses
+              <Send size={16} /> Envoyer ma pièce d'identité et mes réponses
             </button>
           </form>
         </section>
@@ -358,13 +451,22 @@ export default function VerificationPage() {
 
       {/* Lien paiement après approbation */}
       {state.status === 'APPROVED' ? (
-        <button
-          type="button"
-          onClick={() => router.push(`/app/correspondances/${matchId}/paiement`)}
-          className={buttonClasses({ variant: 'primary' })}
-        >
-          Continuer vers le devis →
-        </button>
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-6 text-center">
+          <p className="font-display text-h3 font-bold text-emerald-900">
+            Vérification de propriété approuvée
+          </p>
+          <p className="mt-1 text-body-sm text-emerald-700">
+            Votre identité et vos réponses ont été enregistrées avec succès. Vous pouvez maintenant procéder au règlement sécurisé (mise sous séquestre de la récompense).
+          </p>
+          <div className="mt-4">
+            <Link
+              href={`/app/correspondances/${matchId}/paiement`}
+              className={buttonClasses({ variant: 'primary', size: 'lg' })}
+            >
+              Payer et mettre en relation →
+            </Link>
+          </div>
+        </div>
       ) : null}
     </div>
   );

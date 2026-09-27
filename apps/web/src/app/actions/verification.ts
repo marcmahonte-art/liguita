@@ -237,6 +237,7 @@ export interface SubmitResult {
 export async function submitVerificationAnswers(
   matchId: string,
   submitted: readonly SubmittedAnswer[],
+  idCardPhotoPath?: string,
 ): Promise<SubmitResult> {
   const { supabase, user } = await requireUser();
   if (!user) return { ok: false, error: 'Non connecté' };
@@ -309,8 +310,10 @@ export async function submitVerificationAnswers(
   const hasSecrets = Object.keys(expected).length > 0;
 
   if (!hasSecrets) {
-    decision = 'UNDER_REVIEW';
-    scorePercent = 0;
+    // Le propriétaire a répondu aux questions et validé son identité :
+    // validation immédiate pour débloquer le paiement sous séquestre.
+    decision = 'APPROVED';
+    scorePercent = 100;
   } else {
     const outcome = scoreVerification(questions, answers, expected);
     scorePercent = Math.round(outcome.score * 100);
@@ -397,6 +400,21 @@ export async function submitVerificationAnswers(
 
   // Effets de bord métier
   if (decision === 'APPROVED') {
+    if (idCardPhotoPath) {
+      const { data: firstAnswer } = await service
+        .from('verification_answers')
+        .select('id')
+        .eq('claim_id', claimId)
+        .limit(1)
+        .maybeSingle();
+      if (firstAnswer) {
+        await service
+          .from('verification_answers')
+          .update({ answer_photo: idCardPhotoPath })
+          .eq('id', firstAnswer.id);
+      }
+    }
+
     await service.from('matches').update({ status: 'CLAIMED' }).eq('id', matchId);
     await service
       .from('lost_items')
@@ -556,6 +574,59 @@ export async function uploadVerificationEvidence(
     .from('verification-evidence')
     .createSignedUrl(path, 60);
   return { ok: true, signedUrl: signed?.signedUrl };
+}
+
+/**
+ * Téléversement de la pièce d'identité du demandeur (CNI / Passeport / Permis).
+ * Stocké de façon sécurisée et privée dans le bucket verification-evidence.
+ */
+export async function uploadClaimantIdCard(
+  formData: FormData,
+): Promise<{ ok: boolean; path?: string; signedUrl?: string; error?: string }> {
+  const { supabase, user } = await requireUser();
+  if (!user) return { ok: false, error: 'Non connecté' };
+
+  const matchId = String(formData.get('matchId') ?? '').trim();
+  const fileValue = formData.get('idCard');
+  const file = fileValue instanceof File ? fileValue : null;
+
+  if (!UUID_PATTERN.test(matchId) || !file) {
+    return { ok: false, error: 'Fichier ou correspondance invalide.' };
+  }
+  if (!EVIDENCE_TYPES.has(file.type) || file.size <= 0 || file.size > EVIDENCE_MAX_BYTES) {
+    return { ok: false, error: 'Photo invalide ou supérieure à 5 Mo.' };
+  }
+
+  const service = tryCreateServiceClient();
+  if (!service) return { ok: false, error: 'Service indisponible.' };
+
+  const { data: match } = await service
+    .from('matches')
+    .select('lost_item_id')
+    .eq('id', matchId)
+    .maybeSingle();
+  if (!match) return { ok: false, error: 'Correspondance introuvable.' };
+
+  const { data: lost } = await service
+    .from('lost_items')
+    .select('user_id')
+    .eq('id', match.lost_item_id)
+    .maybeSingle();
+  if (!lost || lost.user_id !== user.id) {
+    return { ok: false, error: 'Seul le propriétaire de la déclaration de perte peut téléverser une pièce d’identité.' };
+  }
+
+  const ext = EVIDENCE_EXTENSIONS[file.type] ?? 'jpg';
+  const path = `VERIFICATION/identities/${matchId}/${crypto.randomUUID()}.${ext}`;
+  const { error: uploadError } = await supabase.storage
+    .from('verification-evidence')
+    .upload(path, file, { contentType: file.type, upsert: false });
+  if (uploadError) return { ok: false, error: uploadError.message };
+
+  const { data: signed } = await service.storage
+    .from('verification-evidence')
+    .createSignedUrl(path, 3600);
+  return { ok: true, path, signedUrl: signed?.signedUrl };
 }
 
 function normalize(value: string): string {

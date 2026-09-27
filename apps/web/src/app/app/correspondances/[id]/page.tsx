@@ -233,22 +233,31 @@ export default function MatchDetailPage() {
         {photoError ? <p role="alert" className="text-caption text-danger-700">{photoError}</p> : null}
 
         <div className="mt-6 flex flex-wrap gap-3 border-t border-ink-100 pt-4">
-          <Link
-            href={`/app/correspondances/${item.id}/verification`}
-            className={buttonClasses({ variant: 'primary' })}
-          >
-            <ShieldCheck size={16} /> Vérifier ma propriété
-          </Link>
-           {item.status === 'CLAIMED' && item.claimStatus === 'APPROVED' ? (
-            <button
-              type="button"
-              disabled={isPending}
-              onClick={handleOpenConversation}
-              className={buttonClasses({ variant: 'outline' })}
+          {item.claimStatus === 'APPROVED' ? (
+            <>
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={handleOpenConversation}
+                className={buttonClasses({ variant: 'primary' })}
+              >
+                <MessageCircle size={16} /> Payer et mettre en relation
+              </button>
+              <Link
+                href={`/app/correspondances/${item.id}/verification`}
+                className={buttonClasses({ variant: 'outline' })}
+              >
+                <ShieldCheck size={16} /> Propriété vérifiée
+              </Link>
+            </>
+          ) : (
+            <Link
+              href={`/app/correspondances/${item.id}/verification`}
+              className={buttonClasses({ variant: 'primary' })}
             >
-              <MessageCircle size={16} /> Payer et mettre en relation
-            </button>
-          ) : null}
+              <ShieldCheck size={16} /> Vérifier ma propriété
+            </Link>
+          )}
           <button
             type="button"
             disabled={isPending || item.status === 'REJECTED'}

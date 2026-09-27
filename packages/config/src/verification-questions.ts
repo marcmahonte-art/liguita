@@ -80,13 +80,123 @@ export function questionsForCategory(categoryId: string): readonly VerificationQ
 }
 
 /**
- * Résout la catégorie racine d'une sous-catégorie, afin de retrouver ses questions.
- * Retourne l'identifiant tel quel s'il désigne déjà une catégorie racine.
+ * Résout les questions courtes et adaptées à la catégorie ou sous-catégorie d'objet.
+ * Chaque catégorie possède au maximum 2 questions simples et discriminantes.
  */
 export function questionsFor(categoryId: string, parentId: string | null): readonly VerificationQuestion[] {
+  // Clés : nombre de clés et description du porte-clés / type
+  if (categoryId === 'keys') {
+    return [
+      {
+        id: 'pers-count',
+        categoryId: 'keys',
+        promptFr: 'Combien de clés compte le trousseau environ ?',
+        answerKind: 'number',
+        weight: 4,
+        isRequired: true,
+      },
+      {
+        id: 'pers-mark',
+        categoryId: 'keys',
+        promptFr: 'Décrivez le porte-clés ou l’accessoire attaché (ou le type de clé : maison, voiture, moto).',
+        answerKind: 'text',
+        weight: 4,
+        isRequired: true,
+      },
+    ];
+  }
+
+  // Portefeuille & Sacs : objet à l'intérieur et couleur/matière
+  if (categoryId === 'wallet' || categoryId === 'bag') {
+    return [
+      {
+        id: 'pers-contents',
+        categoryId,
+        promptFr: 'Citez au moins un objet ou papier précis qui se trouvait à l’intérieur.',
+        answerKind: 'text',
+        weight: 4,
+        isRequired: true,
+      },
+      {
+        id: 'pers-color',
+        categoryId,
+        promptFr: 'Quelle est la couleur dominante et la marque ou matière de l’objet ?',
+        answerKind: 'text',
+        weight: 4,
+        isRequired: true,
+      },
+    ];
+  }
+
+  // Pièces d'identité & documents : nom complet et 4 derniers caractères ou date de naissance
+  if (categoryId === 'documents' || parentId === 'documents') {
+    return [
+      {
+        id: 'doc-name',
+        categoryId: 'documents',
+        promptFr: 'Quel est le nom et prénom complet figurant sur le document ?',
+        answerKind: 'text',
+        weight: 4,
+        isRequired: true,
+      },
+      {
+        id: 'doc-number-tail',
+        categoryId: 'documents',
+        promptFr: 'Quels sont les 4 derniers caractères du numéro ou la date de naissance ?',
+        answerKind: 'text',
+        weight: 4,
+        isRequired: true,
+      },
+    ];
+  }
+
+  // Électronique & Téléphones : modèle et coque / 1er chiffre code
+  if (categoryId === 'electronics' || parentId === 'electronics') {
+    return [
+      {
+        id: 'elec-model',
+        categoryId: 'electronics',
+        promptFr: 'Quelle est la marque et le modèle exact ?',
+        answerKind: 'text',
+        weight: 4,
+        isRequired: true,
+      },
+      {
+        id: 'elec-wallpaper',
+        categoryId: 'electronics',
+        promptFr: 'Décrivez la coque de protection, le fond d’écran ou le premier chiffre du code.',
+        answerKind: 'text',
+        weight: 4,
+        isRequired: true,
+      },
+    ];
+  }
+
+  // Objets de valeur
+  if (categoryId === 'valuables' || parentId === 'valuables') {
+    return [
+      {
+        id: 'val-model',
+        categoryId: 'valuables',
+        promptFr: 'Quelle est la marque et le modèle exact ?',
+        answerKind: 'text',
+        weight: 4,
+        isRequired: true,
+      },
+      {
+        id: 'val-engraving',
+        categoryId: 'valuables',
+        promptFr: 'Y a-t-il un signe distinctif visible, une gravure ou une couleur spécifique ?',
+        answerKind: 'text',
+        weight: 4,
+        isRequired: true,
+      },
+    ];
+  }
+
   const direct = questionsForCategory(categoryId);
-  if (direct.length > 0) return direct;
-  return parentId ? questionsForCategory(parentId) : [];
+  if (direct.length > 0) return direct.slice(0, 2);
+  return parentId ? questionsForCategory(parentId).slice(0, 2) : [];
 }
 
 /** Une réponse apportée par l'utilisateur. */
