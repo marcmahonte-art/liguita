@@ -8,6 +8,8 @@ import {
   type PaymentInitiationResult,
   type PaymentProvider,
   type PaymentStatusResult,
+  type PayoutInitiation,
+  type PayoutInitiationResult,
   type RefundResult,
 } from './types';
 
@@ -87,10 +89,38 @@ function headerValue(headers: Record<string, string>, name: string): string {
   return entry?.[1] ?? '';
 }
 
+/**
+ * Garde d'entrée d'un versement.
+ *
+ * Volontairement symétrique de `validatePaymentInput` : les deux chemins
+ * manipulent un numéro de téléphone et un montant, et une validation
+ * divergente entre l'encaissement et le versement serait un défaut silencieux
+ * qui ne se verrait qu'en production, sur de l'argent réel.
+ */
+function validatePayoutInput(input: PayoutInitiation): void {
+  if (!Number.isSafeInteger(input.amount) || input.amount <= 0) {
+    throw new Error('Montant de versement invalide.');
+  }
+  if (!/^[A-Z]{3}$/.test(input.currency)) throw new Error('Devise de versement invalide.');
+  if (!/^\+?[0-9]{8,15}$/.test(input.recipientPhone.replace(/[\s().-]/g, ''))) {
+    throw new Error('Numéro du bénéficiaire invalide.');
+  }
+  if (!input.reference || !input.idempotencyKey || !input.description) {
+    throw new Error('Référence de versement manquante.');
+  }
+}
+
 export class AirtelMoneyProvider implements PaymentProvider {
   readonly code = 'AIRTEL' as const;
   readonly supportsRefund = true;
   readonly supportsMerchantCollection = true;
+  /**
+   * Airtel Money sait verser (endpoint `/standard/v1/disbursements/`). Le
+   * versement reste conditionné au PIN marchand : `initiatePayout` refuse de
+   * partir sans lui plutôt que d'envoyer une requête qui échouerait côté
+   * opérateur avec un message obscur.
+   */
+  readonly supportsPayout = true;
   private readonly secret: string;
   private readonly baseUrl: string;
   private readonly clientId: string;
@@ -105,6 +135,15 @@ export class AirtelMoneyProvider implements PaymentProvider {
    * `apps/web` plutôt que d'aboutir sur le mauvais destinataire.
    */
   private readonly merchantPhone: string;
+  /**
+   * PIN du compte marchand, exigé par l'API de versement Airtel.
+   *
+   * ⚠️ **Jamais exposé à l'interface, jamais stocké en base.** Il n'est lu que
+   * depuis `AIRTEL_TD_MERCHANT_PIN` et ne quitte pas ce processus. Un secret de
+   * versement qui transiterait par un formulaire d'administration serait
+   * lisible dans l'historique du navigateur et dans les journaux serveur.
+   */
+  private readonly merchantPin: string;
 
   constructor(config: {
     secret: string;
@@ -114,12 +153,19 @@ export class AirtelMoneyProvider implements PaymentProvider {
     clientSecret: string;
     merchantCode?: string;
     merchantPhone?: string;
+    merchantPin?: string;
   }) {
     this.secret = config.secret;
     this.baseUrl = (config.baseUrl ?? config.endpoint ?? '').replace(/\/+$/, '');
     this.clientId = config.clientId;
     this.clientSecret = config.clientSecret;
     this.merchantPhone = config.merchantPhone ?? '';
+    this.merchantPin = config.merchantPin ?? '';
+  }
+
+  /** Le versement est-il exploitable ? Faux si le PIN marchand manque. */
+  get payoutReady(): boolean {
+    return Boolean(this.merchantPin);
   }
 
   private configuredUrl(path: string): string {
@@ -295,6 +341,65 @@ export class AirtelMoneyProvider implements PaymentProvider {
     if (!hash) return false;
     const expected = createHmac('sha256', this.secret).update(rawBody).digest('base64');
     return safeEqual(hash, expected);
+  }
+
+  /**
+   * Verse de l'argent au bénéficiaire (retrait du trouveur).
+   *
+   * ⚠️ Endpoint distinct de l'encaissement : `/standard/v1/disbursements/` et
+   * non `/merchant/v1/payments/`. Les confondre enverrait un ordre de débit
+   * là où l'on attend un crédit — sur de l'argent réel, l'erreur est coûteuse.
+   *
+   * Airtel exige le PIN marchand dans le corps : il est lu depuis
+   * l'environnement et n'est jamais journalisé.
+   */
+  async initiatePayout(input: PayoutInitiation): Promise<PayoutInitiationResult> {
+    validatePayoutInput(input);
+    if (!this.merchantPin) {
+      throw new Error(
+        'PIN marchand Airtel non configuré : le versement automatique est indisponible.',
+      );
+    }
+
+    const response = await fetch(this.configuredUrl('/standard/v1/disbursements/'), {
+      method: 'POST',
+      headers: await this.authenticatedHeaders(),
+      body: JSON.stringify({
+        payee: {
+          msisdn: normalizeAirtelMsisdn(input.recipientPhone),
+        },
+        reference: input.reference,
+        pin: this.merchantPin,
+        transaction: {
+          amount: input.amount,
+          id: input.idempotencyKey,
+          type: 'B2C',
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      // Le corps d'erreur porte souvent la vraie raison (PIN erroné, solde
+      // marchand insuffisant). On le remonte plutôt que de le perdre.
+      const detail = await response.text().catch(() => '');
+      throw new Error(
+        `Airtel Money a refusé le versement (${response.status})${detail ? ` : ${detail.slice(0, 300)}` : ''}`,
+      );
+    }
+
+    const body = (await response.json()) as {
+      data?: { transaction?: { id?: string; status?: string; airtel_money_id?: string } };
+      transaction?: { id?: string; status?: string };
+      status?: { code?: string; message?: string; success?: boolean };
+    };
+    const transaction = body.data?.transaction ?? body.transaction;
+    const providerReference = transaction?.id ?? body.data?.transaction?.airtel_money_id;
+    if (!providerReference) throw new Error('Réponse Airtel Money incomplète.');
+    return {
+      providerReference,
+      settled: airtelStatus(transaction?.status) === 'PAID',
+      ...(transaction?.status ? { providerStatus: transaction.status } : {}),
+    };
   }
 }
 

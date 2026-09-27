@@ -183,3 +183,107 @@ describe('AirtelMoneyProvider', () => {
     expect(provider.verifyWebhook(body, { hash: 'invalid' })).toBe(false);
   });
 });
+
+describe('AirtelMoneyProvider — versement (retrait du trouveur)', () => {
+  function payoutProvider(pin?: string): AirtelMoneyProvider {
+    return new AirtelMoneyProvider({
+      secret: 'callback-secret',
+      baseUrl: 'https://openapi.airtel.td',
+      clientId: 'client-id',
+      clientSecret: 'client-secret',
+      merchantPhone: '66000000',
+      ...(pin ? { merchantPin: pin } : {}),
+    });
+  }
+
+  it('annonce savoir verser', () => {
+    expect(payoutProvider('1234').supportsPayout).toBe(true);
+  });
+
+  it('refuse de partir sans PIN marchand plutôt que d échouer chez l opérateur', async () => {
+    const provider = payoutProvider();
+    expect(provider.payoutReady).toBe(false);
+    await expect(
+      provider.initiatePayout({
+        amount: 2500,
+        currency: 'XAF',
+        recipientPhone: '+23566123456',
+        reference: 'LG-WD-1',
+        idempotencyKey: 'wd-idem-123456',
+        description: 'Retrait trouveur',
+      }),
+    ).rejects.toThrow('PIN marchand');
+  });
+
+  it('verse sur /standard/v1/disbursements/ et non sur l endpoint d encaissement', async () => {
+    const fetchMock = vi.fn((url: string | URL) => {
+      if (String(url).endsWith('/auth/oauth2/token')) {
+        return Promise.resolve(airtelResponse({ access_token: 'token-1', expires_in: 3600 }));
+      }
+      return Promise.resolve(
+        airtelResponse({ data: { transaction: { id: 'disb-1', status: 'TIP' } } }),
+      );
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await payoutProvider('1234').initiatePayout({
+      amount: 2500,
+      currency: 'XAF',
+      recipientPhone: '+23566123456',
+      reference: 'LG-WD-1',
+      idempotencyKey: 'wd-idem-123456',
+      description: 'Retrait trouveur',
+    });
+
+    expect(result.providerReference).toBe('disb-1');
+    expect(result.settled).toBe(false);
+
+    const disbursementCall = fetchMock.mock.calls.find(([url]) =>
+      String(url).includes('disbursements'),
+    );
+    expect(disbursementCall).toBeDefined();
+    // Le corps porte le PIN : il ne doit jamais se retrouver côté encaissement.
+    const body = JSON.parse(String(disbursementCall?.[1]?.body));
+    expect(body.payee.msisdn).toBe('66123456');
+    expect(body.transaction.type).toBe('B2C');
+    expect(body.pin).toBe('1234');
+  });
+
+  it('remonte le motif réel quand l opérateur refuse le versement', async () => {
+    const fetchMock = vi.fn((url: string | URL) => {
+      if (String(url).endsWith('/auth/oauth2/token')) {
+        return Promise.resolve(airtelResponse({ access_token: 'token-1', expires_in: 3600 }));
+      }
+      return Promise.resolve({
+        ok: false,
+        status: 400,
+        text: async () => 'Insufficient merchant balance',
+      } as unknown as Response);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      payoutProvider('1234').initiatePayout({
+        amount: 2500,
+        currency: 'XAF',
+        recipientPhone: '+23566123456',
+        reference: 'LG-WD-2',
+        idempotencyKey: 'wd-idem-999999',
+        description: 'Retrait trouveur',
+      }),
+    ).rejects.toThrow('Insufficient merchant balance');
+  });
+
+  it('refuse un numéro de bénéficiaire invalide', async () => {
+    await expect(
+      payoutProvider('1234').initiatePayout({
+        amount: 2500,
+        currency: 'XAF',
+        recipientPhone: 'abc',
+        reference: 'LG-WD-3',
+        idempotencyKey: 'wd-idem-000000',
+        description: 'Retrait',
+      }),
+    ).rejects.toThrow('bénéficiaire');
+  });
+});

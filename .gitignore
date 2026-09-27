@@ -56,3 +56,6 @@ pnpm-debug.log*
 *.local
 
 .vercel
+
+# Scripts temporaires d application de migration (jamais commites)
+.migration-tmp/

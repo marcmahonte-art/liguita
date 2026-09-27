@@ -58,6 +58,36 @@ export interface RefundResult {
   refundReference: string;
 }
 
+/**
+ * Demande de versement — l'argent part de Liguita vers un bénéficiaire.
+ *
+ * C'est le pendant de `PaymentInitiation` du côté sortant : le trouveur a
+ * demandé son retrait, un administrateur l'a validé, et il faut maintenant
+ * payer. Le numéro destinataire est celui du **bénéficiaire**, jamais celui
+ * d'un payeur.
+ */
+export interface PayoutInitiation {
+  amount: number;
+  currency: string;
+  /** Numéro du bénéficiaire crédité (le trouveur). */
+  recipientPhone: string;
+  reference: string;
+  idempotencyKey: string;
+  description: string;
+}
+
+export interface PayoutInitiationResult {
+  providerReference: string;
+  /** Statut opérateur brut, conservé pour la piste d'audit. */
+  providerStatus?: string;
+  /**
+   * `true` si l'opérateur annonce le versement déjà abouti. Un versement
+   * mobile money est le plus souvent asynchrone : `false` signifie « soumis,
+   * en attente de confirmation par webhook », pas « échoué ».
+   */
+  settled: boolean;
+}
+
 export interface PaymentProvider {
   readonly code: PaymentProviderCode;
   readonly supportsRefund: boolean;
@@ -69,6 +99,14 @@ export interface PaymentProvider {
   readonly supportsMerchantCollection?: boolean;
   initiate(input: PaymentInitiation): Promise<PaymentInitiationResult>;
   checkStatus(providerReference: string): Promise<PaymentStatusResult>;
+  /**
+   * Le fournisseur sait-il **verser** de l'argent (retraits du trouveur) ?
+   * Optionnel : un opérateur peut savoir encaisser sans savoir payer.
+   * Absent ou `false`, la console d'administration n'expose pas le versement
+   * automatique et laisse le règlement manuel.
+   */
+  readonly supportsPayout?: boolean;
+  initiatePayout?(input: PayoutInitiation): Promise<PayoutInitiationResult>;
   refund?(input: {
     providerReference: string;
     amount: number;
