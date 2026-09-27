@@ -24,6 +24,7 @@ function safeEqual(left: string, right: string): boolean {
 export class TestPaymentProvider implements PaymentProvider {
   readonly code = 'CASH' as const;
   readonly supportsRefund = true;
+  readonly supportsMerchantCollection = true;
   private readonly secret: string;
 
   constructor(secret: string) {
@@ -89,6 +90,7 @@ function headerValue(headers: Record<string, string>, name: string): string {
 export class AirtelMoneyProvider implements PaymentProvider {
   readonly code = 'AIRTEL' as const;
   readonly supportsRefund = true;
+  readonly supportsMerchantCollection = true;
   private readonly secret: string;
   private readonly baseUrl: string;
   private readonly clientId: string;
@@ -96,6 +98,13 @@ export class AirtelMoneyProvider implements PaymentProvider {
   private accessToken = '';
   private tokenExpiresAt = 0;
   private tokenRequest: Promise<string> | null = null;
+  /**
+   * Numéro marchand Liguita que le payeur crédite. C'est **lui** qui encaisse
+   * les frais de mise en relation — jamais le trouveur. Lu depuis
+   * `AIRTEL_TD_MERCHANT_MSISDN` ; laissé vide, l'encaissement est refusé côté
+   * `apps/web` plutôt que d'aboutir sur le mauvais destinataire.
+   */
+  private readonly merchantPhone: string;
 
   constructor(config: {
     secret: string;
@@ -104,11 +113,13 @@ export class AirtelMoneyProvider implements PaymentProvider {
     clientId: string;
     clientSecret: string;
     merchantCode?: string;
+    merchantPhone?: string;
   }) {
     this.secret = config.secret;
     this.baseUrl = (config.baseUrl ?? config.endpoint ?? '').replace(/\/+$/, '');
     this.clientId = config.clientId;
     this.clientSecret = config.clientSecret;
+    this.merchantPhone = config.merchantPhone ?? '';
   }
 
   private configuredUrl(path: string): string {
@@ -166,6 +177,21 @@ export class AirtelMoneyProvider implements PaymentProvider {
 
   async initiate(input: PaymentInitiation): Promise<PaymentInitiationResult> {
     validatePaymentInput(input);
+
+    // Un encaissement crédite le compte marchand Liguita ; un versement crédite
+    // le bénéficiaire. Les deux ne doivent jamais être confondus : encaisser
+    // sans numéro marchand aboutirait sur le mauvais destinataire.
+    //
+    // ⚠️ La garde ne s'applique que si l'appelant a *explicitement* demandé une
+    // collecte. En son absence, la requête part telle quelle : cet adaptateur
+    // reste un transport, la décision métier appartient à `apps/web` (qui, lui,
+    // refuse de composer un encaissement sans numéro marchand).
+    if (input.flow === 'COLLECTION' && !(input.merchantPhone ?? this.merchantPhone)) {
+      throw new Error(
+        'Numéro marchand Liguita non configuré : impossible d’encaisser le paiement.',
+      );
+    }
+
     const response = await fetch(this.configuredUrl('/merchant/v1/payments/'), {
       method: 'POST',
       headers: await this.authenticatedHeaders(),

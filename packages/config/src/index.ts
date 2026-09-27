@@ -6,3 +6,4 @@ export * from './places';
 export * from './categories';
 export * from './item-types';
 export * from './verification-questions';
+export * from './found-secrets';

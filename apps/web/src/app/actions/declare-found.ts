@@ -2,6 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 
+import { findCategory, validateFoundSecrets } from '@liguita/config';
+
 import { createClient } from '../../lib/supabase/server';
 import { tryCreateServiceClient } from '../../lib/supabase/service';
 import { runMatchingForFound } from '../../lib/matching/run';
@@ -21,8 +23,14 @@ export interface DeclareFoundResult {
 /**
  * Server Action : enregistre une déclaration « j'ai trouvé ».
  *
- * Vérifie la session active, valide les champs obligatoires, puis insère dans
- * `found_items` avec `status = 'FOUND'`.
+ * Vérifie la session active, valide les champs obligatoires, **exige les
+ * réponses de vérification**, puis insère dans `found_items` avec
+ * `status = 'FOUND'`.
+ *
+ * ⚠️ Les réponses de vérification sont désormais obligatoires (voir
+ * `@liguita/config` → `found-secrets.ts`). Sans elles, `found_item_secrets`
+ * reste vide, le score de vérification vaut 0 et **toute** réclamation part en
+ * revue manuelle : c'est le défaut constaté en production, on le ferme ici.
  */
 export async function declareFoundItem(formData: FormData): Promise<DeclareFoundResult> {
   const supabase = await createClient();
@@ -71,6 +79,20 @@ export async function declareFoundItem(formData: FormData): Promise<DeclareFound
     }
   }
 
+  if (!findCategory(categoryCode)) {
+    return { success: false, error: 'Catégorie inconnue.' };
+  }
+
+  // --- Secrets de vérification (obligatoires) -------------------------------
+  // Le client envoie un JSON `{"<questionCode>": "<réponse>"}` dans le champ
+  // `secrets`. On ne fait jamais confiance au bouton côté client : la garde
+  // est rejouée ici.
+  const secrets = parseSecrets(formData.get('secrets'));
+  const validation = validateFoundSecrets(categoryCode, secrets);
+  if (!validation.ok) {
+    return { success: false, error: validation.error };
+  }
+
   const { data, error } = await supabase
     .from('found_items')
     .insert({
@@ -97,6 +119,38 @@ export async function declareFoundItem(formData: FormData): Promise<DeclareFound
     };
   }
 
+  // Les secrets sont écrits AVANT les photos : sans preuve de propriété,
+  // l'objet trouvé est inexploitable, il ne doit pas rester en base.
+  // On passe par le client de service pour pouvoir signaler l'échec
+  // d'écriture sans laisser un objet sans preuve derrière nous.
+  const service = tryCreateServiceClient();
+  if (!service) {
+    // Sans service client on ne peut pas garantir la preuve : on annule la
+    // déclaration plutôt que de recréer le défaut « secrets vides ».
+    await supabase.from('found_items').delete().eq('id', data.id);
+    return {
+      success: false,
+      error: "L'enregistrement de vos réponses de vérification a échoué. Réessayez.",
+    };
+  }
+
+  const { error: secretsError } = await service
+    .from('found_item_secrets')
+    .upsert(
+      { found_item_id: data.id, answers: secrets },
+      { onConflict: 'found_item_id' },
+    );
+
+  if (secretsError) {
+    // On ne laisse jamais un objet trouvé sans réponses : cela produirait
+    // exactement le blocage qu'on cherche à corriger.
+    await service.from('found_items').delete().eq('id', data.id);
+    return {
+      success: false,
+      error: `Vos réponses de vérification n'ont pas pu être enregistrées : ${secretsError.message}`,
+    };
+  }
+
   const photoWarnings: string[] = [];
   for (const [index, photo] of photos.entries()) {
     const photoFormData = new FormData();
@@ -117,8 +171,7 @@ export async function declareFoundItem(formData: FormData): Promise<DeclareFound
   // utilisateurs. On ne bloque pas la réponse si le pré-filtrage échoue :
   // le worker match-sweep rattrapera.
   try {
-    const service = tryCreateServiceClient();
-    if (service) await runMatchingForFound(service, data.id);
+    await runMatchingForFound(service, data.id);
   } catch {
     // best-effort
   }
@@ -132,3 +185,26 @@ export async function declareFoundItem(formData: FormData): Promise<DeclareFound
     photoWarnings: photoWarnings.length > 0 ? photoWarnings : undefined,
   };
 }
+
+/**
+ * Lit le champ `secrets` du formulaire.
+ *
+ * Tolérant par construction : un JSON invalide renvoie `{}`, ce qui échouera
+ * ensuite à la validation avec un message compréhensible plutôt qu'une erreur
+ * de parsing brute.
+ */
+function parseSecrets(raw: FormDataEntryValue | null): Record<string, string> {
+  if (typeof raw !== 'string' || raw.trim() === '') return {};
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    const out: Record<string, string> = {};
+    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof value === 'string') out[key] = value;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+

@@ -33,6 +33,8 @@ export interface PaymentStartResult {
   conversationId?: string;
   status?: string;
   redirectUrl?: string;
+  /** Etat de la divulgation du contact du trouveur apres encaissement. */
+  contactStatus?: string;
   error?: string;
 }
 
@@ -275,6 +277,7 @@ function providerFor(code: 'CASH' | 'AIRTEL' | 'MOOV'): PaymentProvider {
       clientId: config.clientId ?? process.env.AIRTEL_CLIENT_ID ?? '',
       clientSecret: config.clientSecret ?? process.env.AIRTEL_CLIENT_SECRET ?? '',
       merchantCode: config.merchantCode,
+      merchantPhone: liguitaMerchantPhone(),
     });
   }
 
@@ -289,6 +292,17 @@ function providerFor(code: 'CASH' | 'AIRTEL' | 'MOOV'): PaymentProvider {
   });
 }
 
+/**
+ * Numéro marchand Liguita sur lequel le chercheur règle les frais.
+ *
+ * ⚠️ Le chercheur ne paie **jamais** le trouveur : il paie Liguita, qui verse
+ * la récompense au trouveur sur demande de retrait (voir `request_withdrawal`).
+ * Ce numéro est donc la seule destination possible d'un encaissement.
+ */
+function liguitaMerchantPhone(): string {
+  return process.env.AIRTEL_TD_MERCHANT_MSISDN ?? '';
+}
+
 export async function initiatePayment(
   quoteId: string,
   idempotencyKey: string,
@@ -301,6 +315,16 @@ export async function initiatePayment(
   }
   if (providerCode === 'AIRTEL' && !isAirtelConfigured()) {
     return { ok: false, error: 'Airtel Money UAT n’est pas configuré.' };
+  }
+  // Le chercheur règle Liguita, jamais le trouveur : sans numéro marchand, on
+  // refuse plutôt que de risquer de débiter le mauvais destinataire.
+  if (providerCode === 'AIRTEL' && !liguitaMerchantPhone()) {
+    return {
+      ok: false,
+      error:
+        'Le numéro marchand Liguita n’est pas configuré. Le paiement Airtel Money ' +
+        'sera disponible dès que le compte marchand sera ouvert.',
+    };
   }
   const service = tryCreateServiceClient();
   if (!service) return { ok: false, error: 'Service indisponible.' };
@@ -369,6 +393,9 @@ export async function initiatePayment(
       reference: quoteId,
       idempotencyKey: airtelTransactionId ?? idempotencyKey,
       description: 'Frais de mise en relation Liguita',
+      // Les fonds vont sur le compte marchand Liguita, pas sur le trouveur.
+      flow: 'COLLECTION',
+      merchantPhone: liguitaMerchantPhone() || undefined,
     });
     await service
       .from('transactions')
@@ -399,6 +426,9 @@ export async function initiatePayment(
     const paid = await service.rpc('mark_payment_paid', {
       p_transaction_id: transactionId,
       p_provider_reference: result.providerReference,
+      // ⚠️ Ne jamais écrire ici les coordonnées du trouveur : `payment_events`
+      // conserve ce payload et le personnel peut le lire. Le numéro est servi
+      // exclusivement par `get_finder_contact()`.
       p_payload: result.airtelStatus
         ? { provider: providerCode, transaction: { status: result.airtelStatus } }
         : { provider: providerCode, status: 'PAID' },
@@ -410,6 +440,7 @@ export async function initiatePayment(
       transactionId,
       status: 'PAID',
       conversationId: (paid.data as { conversation_id?: string }).conversation_id,
+      contactStatus: (paid.data as { contact_status?: string }).contact_status,
     };
   } catch (error) {
     if (providerCode === 'AIRTEL') {
@@ -433,4 +464,49 @@ export async function initiatePayment(
       error: error instanceof Error ? error.message : 'Paiement impossible.',
     };
   }
+}
+
+export interface FinderContactState {
+  status: 'LOCKED' | 'AVAILABLE';
+  reason?: 'PAYMENT_REQUIRED' | 'NO_CONSENT' | 'NO_PHONE';
+  finderPhone: string | null;
+  finderName: string | null;
+  finderIsSamaritan: boolean;
+}
+
+/**
+ * Coordonnées du trouveur pour le chercheur, après paiement.
+ *
+ * Délègue entièrement à `get_finder_contact()` côté base : la règle de
+ * divulgation (payé + consenti + numéro présent) vit à un seul endroit, et le
+ * client ne peut pas la contourner.
+ */
+export async function getFinderContact(matchId: string): Promise<FinderContactState> {
+  const { supabase, user } = await requireUser();
+  if (!user) return { status: 'LOCKED', reason: 'PAYMENT_REQUIRED', finderPhone: null, finderName: null, finderIsSamaritan: false };
+
+  const { data, error } = await supabase.rpc('get_finder_contact', { p_match_id: matchId });
+  if (error || !data) {
+    return {
+      status: 'LOCKED',
+      reason: 'PAYMENT_REQUIRED',
+      finderPhone: null,
+      finderName: null,
+      finderIsSamaritan: false,
+    };
+  }
+  const payload = data as {
+    status: string;
+    reason?: string;
+    finder_phone: string | null;
+    finder_name: string | null;
+    finder_is_samaritan: boolean;
+  };
+  return {
+    status: payload.status === 'AVAILABLE' ? 'AVAILABLE' : 'LOCKED',
+    reason: payload.reason as FinderContactState['reason'],
+    finderPhone: payload.finder_phone,
+    finderName: payload.finder_name,
+    finderIsSamaritan: Boolean(payload.finder_is_samaritan),
+  };
 }

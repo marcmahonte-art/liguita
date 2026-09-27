@@ -5,8 +5,10 @@ import {
   CheckCircle2,
   Gift,
   ImagePlus,
+  KeyRound,
   LogIn,
   Save,
+  ShieldCheck,
   Sparkles,
   Trash2,
 } from 'lucide-react';
@@ -14,7 +16,15 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
-import { ACTIVE_CITIES, ITEM_TYPES, LEAF_CATEGORIES, NEIGHBORHOODS } from '@liguita/config';
+import {
+  ACTIVE_CITIES,
+  FOUND_SECRETS_MIN_ANSWERS,
+  ITEM_TYPES,
+  LEAF_CATEGORIES,
+  NEIGHBORHOODS,
+  secretsQuestionsForCategory,
+  validateFoundSecrets,
+} from '@liguita/config';
 import { buttonClasses, Combobox, Select } from '@liguita/ui';
 
 import { declareFoundItem } from '../../../actions/declare-found';
@@ -35,6 +45,8 @@ interface FoundDraft {
   neighborhoodSlug: string;
   placeLabel: string;
   foundDate: string;
+  /** Réponses de vérification : `{ [questionCode]: réponse }`. */
+  secrets: Record<string, string>;
 }
 
 const INITIAL_FORM: FoundDraft = {
@@ -48,7 +60,17 @@ const INITIAL_FORM: FoundDraft = {
   neighborhoodSlug: '',
   placeLabel: '',
   foundDate: new Date().toISOString().split('T')[0] || '',
+  secrets: {},
 };
+
+/** Ne transmet que les réponses non vides : les autres sont lues comme absentes. */
+function pruneSecrets(secrets: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(secrets)
+      .map(([key, value]) => [key, String(value ?? '').trim()] as const)
+      .filter(([, value]) => value.length > 0),
+  );
+}
 
 export default function DeclareFoundItemPage() {
   const router = useRouter();
@@ -73,6 +95,15 @@ export default function DeclareFoundItemPage() {
     }
   }, [authLoading, user, router]);
 
+  /**
+   * Met à jour une réponse de vérification sans écraser les autres.
+   * `useDraft.update` remplace la valeur d'une clé : on lui passe donc une
+   * copie complète du dictionnaire de secrets.
+   */
+  function updateSecret(questionId: string, value: string) {
+    update('secrets', { ...formData.secrets, [questionId]: value });
+  }
+
   const typeOptions = useMemo(() => {
     const source = formData.categoryId
       ? ITEM_TYPES.filter((t) => t.categoryId === formData.categoryId)
@@ -85,13 +116,27 @@ export default function DeclareFoundItemPage() {
     (n) => n.citySlug === formData.citySlug,
   ).map((n) => ({ value: n.slug, label: `${n.name} (${n.arrondissement}e arr.)` }));
 
+  // Questions de vérification dérivées de la sous-catégorie choisie. Elles sont
+  // portées par la catégorie racine : `secretsQuestionsForCategory` fait la
+  // résolution parent/enfant, exactement comme le moteur de scoring serveur.
+  const secretQuestions = useMemo(
+    () => secretsQuestionsForCategory(formData.categoryId),
+    [formData.categoryId],
+  );
+
+  const secretsValidation = useMemo(
+    () => validateFoundSecrets(formData.categoryId, formData.secrets),
+    [formData.categoryId, formData.secrets],
+  );
+
   const canSubmit =
     formData.categoryId &&
     formData.itemTypeId &&
     formData.title.trim() &&
     formData.citySlug &&
     formData.placeLabel.trim() &&
-    formData.foundDate;
+    formData.foundDate &&
+    secretsValidation.ok;
 
   function handlePhotoChange(event: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
@@ -139,6 +184,7 @@ export default function DeclareFoundItemPage() {
     fd.set('neighborhoodSlug', formData.neighborhoodSlug);
     fd.set('placeLabel', formData.placeLabel.trim());
     fd.set('foundAt', formData.foundDate);
+    fd.set('secrets', JSON.stringify(pruneSecrets(formData.secrets)));
     for (const photo of selectedPhotos) {
       fd.append('photos', photo);
     }
@@ -306,6 +352,10 @@ export default function DeclareFoundItemPage() {
               onChange={(event) => {
                 update('categoryId', event.target.value);
                 update('itemTypeId', '');
+                // Les questions dépendent de la catégorie : conserver des
+                // réponses rattachées à l'ancienne catégorie fausserait le
+                // score côté serveur.
+                update('secrets', {});
               }}
               options={LEAF_CATEGORIES.map((cat) => ({
                 value: cat.id,
@@ -482,10 +532,104 @@ export default function DeclareFoundItemPage() {
             </div>
           </div>
 
-          {/* Section 3 : Profil (coordonnées issues du compte) */}
+          {/* Section 3 : Preuve de propriété (obligatoire) */}
           <div className="space-y-4 pt-2">
             <h2 className="border-b border-ink-100 pb-2 font-display text-lg font-bold text-ink-900">
-              3. Mise en relation
+              3. Preuve de propriété <span className="text-brand-500">*</span>
+            </h2>
+
+            <div className="flex items-start gap-3 rounded-2xl border border-brand-200 bg-brand-50/60 p-4">
+              <ShieldCheck size={22} className="mt-0.5 shrink-0 text-brand-600" />
+              <div className="space-y-1 text-caption leading-relaxed text-ink-800">
+                <p className="font-bold">
+                  Ces réponses ne sont jamais publiques. Elles servent à reconnaître le vrai
+                  propriétaire.
+                </p>
+                <p>
+                  Elles restent strictement confidentielles : personne ne les voit, ni sur la
+                  fiche de l&apos;objet, ni dans la recherche. Le propriétaire devra donner les
+                  mêmes réponses pour prouver que l&apos;objet est bien à lui — c&apos;est ce qui
+                  vous protège d&apos;une personne mal intentionnée.
+                </p>
+              </div>
+            </div>
+
+            {secretQuestions.length === 0 ? (
+              <p className="rounded-xl border border-ink-200 bg-ink-50 p-3 text-caption text-ink-600">
+                Choisissez d&apos;abord une catégorie pour afficher les questions.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {secretQuestions.map((question) => (
+                  <div key={question.id} className="space-y-1.5">
+                    <label
+                      htmlFor={`secret-${question.id}`}
+                      className="block text-body-sm font-bold text-ink-800"
+                    >
+                      {question.promptFr}
+                      {question.isRequired ? (
+                        <span className="text-brand-500"> *</span>
+                      ) : (
+                        <span className="ml-1 text-2xs font-medium text-ink-500">
+                          (facultatif)
+                        </span>
+                      )}
+                    </label>
+
+                    {question.answerKind === 'choice' && question.choices ? (
+                      <Select
+                        value={formData.secrets[question.id] ?? ''}
+                        onChange={(event) => updateSecret(question.id, event.target.value)}
+                        placeholder="Sélectionnez…"
+                        options={question.choices.map((choice) => ({
+                          value: choice,
+                          label: choice,
+                        }))}
+                      />
+                    ) : (
+                      <input
+                        id={`secret-${question.id}`}
+                        type={question.answerKind === 'date' ? 'date' : 'text'}
+                        inputMode={question.answerKind === 'number' ? 'numeric' : 'text'}
+                        value={formData.secrets[question.id] ?? ''}
+                        onChange={(event) => updateSecret(question.id, event.target.value)}
+                        placeholder="Votre réponse…"
+                        className="w-full rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 text-body text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none"
+                      />
+                    )}
+                  </div>
+                ))}
+
+                <p
+                  className={
+                    secretsValidation.ok
+                      ? 'flex items-center gap-1.5 text-2xs font-bold text-emerald-700'
+                      : 'text-2xs text-ink-500'
+                  }
+                >
+                  {secretsValidation.ok ? (
+                    <>
+                      <CheckCircle2 size={13} />
+                      {secretsValidation.answered.length} réponse
+                      {secretsValidation.answered.length > 1 ? 's' : ''} enregistrée
+                      {secretsValidation.answered.length > 1 ? 's' : ''}
+                    </>
+                  ) : (
+                    <>
+                      <KeyRound size={13} className="inline" /> Au moins{' '}
+                      {FOUND_SECRETS_MIN_ANSWERS} réponses sont nécessaires pour publier la
+                      déclaration.
+                    </>
+                  )}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Section 4 : Profil (coordonnées issues du compte) */}
+          <div className="space-y-4 pt-2">
+            <h2 className="border-b border-ink-100 pb-2 font-display text-lg font-bold text-ink-900">
+              4. Mise en relation
             </h2>
             <p className="text-caption text-ink-600">
               Les coordonnées de {identity?.displayName ?? 'votre profil'} sont déjà

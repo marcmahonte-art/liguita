@@ -1,6 +1,6 @@
 'use client';
 
-import { LockKeyhole, ShieldCheck } from 'lucide-react';
+import { Building2, LockKeyhole, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
@@ -222,6 +222,18 @@ export default function PaymentPage() {
               ]}
               disabled={isPending}
             />
+
+            <div className="flex items-start gap-3 rounded-2xl border border-ink-200 bg-ink-50/60 p-3.5">
+              <Building2 size={18} className="mt-0.5 shrink-0 text-ink-600" />
+              <p className="text-2xs leading-relaxed text-ink-700">
+                <strong className="font-bold text-ink-900">
+                  Vous réglez Liguita, pas le trouveur.
+                </strong>{' '}
+                Le montant est encaissé sur le compte marchand Liguita. La récompense du trouveur
+                est réservée immédiatement et lui sera versée sur sa propre demande de retrait.
+              </p>
+            </div>
+
             <button
               type="button"
               onClick={handlePay}
@@ -249,8 +261,16 @@ export default function PaymentPage() {
           <ShieldCheck size={18} className="text-brand-700" /> Après paiement
         </h2>
         <p className="mt-2 text-body-sm text-ink-700">
-          La conversation sécurisée et la réservation de la récompense sont créées automatiquement
-          après confirmation opérateur.
+          Dès la confirmation de l’opérateur, la conversation sécurisée s’ouvre, la récompense du
+          trouveur est réservée, et{' '}
+          <strong className="font-bold text-ink-900">
+            le numéro de téléphone du trouveur vous est communiqué
+          </strong>{' '}
+          pour convenir directement de la restitution.
+        </p>
+        <p className="mt-2 text-body-sm text-ink-700">
+          Le numéro n’est transmis que si le trouveur a donné son accord lors de son inscription.
+          Un trouveur ayant retiré son accord reste joignable uniquement par la messagerie Liguita.
         </p>
         <p className="mt-2 text-body-sm text-ink-700">
           Remboursement intégral disponible sous 7 jours sans mise en relation effective.

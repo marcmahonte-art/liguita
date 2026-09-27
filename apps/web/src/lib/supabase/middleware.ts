@@ -44,6 +44,10 @@ export async function updateSession(request: NextRequest) {
   // (redirection avec paramètre `redirect` plus précis).
   const PROTECTED_PREFIXES = ['/app', '/business', '/admin'];
 
+  // Fiche de consentement — hors de `/app`, donc non couverte par les préfixes
+  // protégés ci-dessus : la garde ci-dessous ne peut pas boucler sur elle-même.
+  const CONSENT_PATH = '/consentement';
+
   const isProtected = PROTECTED_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
@@ -53,6 +57,32 @@ export async function updateSession(request: NextRequest) {
     url.pathname = '/connexion';
     url.searchParams.set('redirect', pathname + request.nextUrl.search);
     return NextResponse.redirect(url);
+  }
+
+  // Consentement obligatoire : un utilisateur connecté qui n'a pas signé la
+  // fiche ne peut pas entrer dans l'application. On interroge la fonction SQL
+  // `registration_consent_state()` (source de vérité unique, cf. migration
+  // 20260923003500).
+  //
+  // ⚠️ On n'échoue jamais la requête si la fonction n'existe pas encore
+  // (migration en attente) : on laisse passer plutôt que d'enfermer tout le
+  // monde hors de l'application. Le garde de page (`/app/layout`) reprend le
+  // relais dès que la base est à jour.
+  if (user && isProtected && !pathname.startsWith(CONSENT_PATH)) {
+    const { data: consentState } = await supabase.rpc('registration_consent_state');
+    const state = consentState as
+      | { contact_disclosure?: boolean; terms?: boolean }
+      | null
+      | undefined;
+
+    // `undefined` = fonction absente (PGRST202) → on ne bloque pas.
+    // `null` ou objet = la fonction a répondu, on l'applique.
+    if (state && !(state.contact_disclosure && state.terms)) {
+      const url = request.nextUrl.clone();
+      url.pathname = CONSENT_PATH;
+      url.searchParams.set('redirect', pathname + request.nextUrl.search);
+      return NextResponse.redirect(url);
+    }
   }
 
   // L'utilisateur connecté n'a pas besoin de la page de connexion.
