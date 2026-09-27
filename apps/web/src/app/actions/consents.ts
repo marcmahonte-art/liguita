@@ -3,18 +3,16 @@
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 
+import { CONSENT_VERSION } from '@liguita/config';
+
 import { createClient } from '../../lib/supabase/server';
 import { tryCreateServiceClient } from '../../lib/supabase/service';
 
 /**
- * Version courante des textes de consentement.
- *
- * ⚠️ Toute modification du texte affiché à l'utilisateur **doit** incrémenter
- * cette valeur. Les consentements sont horodatés par version : conserver la
- * même version en changeant le texte rendrait la preuve inopposable.
- * Doit rester alignée sur `registration_consent_state()` côté SQL.
+ * ⚠️ Un fichier `'use server'` ne peut exporter que des fonctions asynchrones :
+ * `CONSENT_VERSION` vit donc dans `@liguita/config` (module `consents.ts`),
+ * avec les autres constantes partagées.
  */
-export const CONSENT_VERSION = '2026-09-v1';
 
 export interface ConsentKindInput {
   readonly contactDisclosure: boolean;

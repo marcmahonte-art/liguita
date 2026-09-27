@@ -7,3 +7,4 @@ export * from './categories';
 export * from './item-types';
 export * from './verification-questions';
 export * from './found-secrets';
+export * from './consents';
