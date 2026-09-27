@@ -62,14 +62,22 @@ export const PUBLIC_NAV: readonly NavItem[] = [
 /**
  * Entrées principales de l'espace connecté.
  *
- * ⚠️ **« Rechercher un objet » y figure désormais, contre la décision initiale.** Le
- * motif qui l'en excluait — la recherche est déjà dans la barre supérieure et sur le
- * bouton principal du tableau de bord — reste vrai, et un menu qui répète ce que
- * l'écran d'accueil affiche en plus grand n'aide personne à décider. L'onglet a
- * néanmoins été ajouté sur demande : c'est l'action la plus fréquente du produit, et
- * la burying dans une barre de recherche Unique la rend invisible au moment où l'on
- * cherche un objet précis plutôt qu'à explorer. Elle est placée en tête, avant le
- * tableau de bord, parce que c'est le premier geste et non un écran de suivi.
+ * ⚠️ **« Rechercher » pointe vers `/app/recherche`, pas vers `/rechercher`.** La page
+ * publique `/rechercher` affiche les mêmes résultats, mais hors du coquille connecté :
+ * la cliquer depuis la sidebar fait sortir de l'espace personnel, et la barre latérale
+ * disparaît le temps de chercher. `/app/recherche` rend le même composant dans le
+ * coquille `/app`, et c'est déjà la destination du champ de recherche de la barre
+ * supérieure — l'entrée de menu et la barre convergent donc vers le même écran, ce qui
+ * n'était pas le cas tant que la sidebar pointait ailleurs.
+ *
+ * C'est aussi la réponse à l'objection d'origine contre cet onglet : la duplication
+ * avec la barre supérieure n'en est pas une puisque les deux mènent au même endroit.
+ * L'onglet sert à ce que la barre ne peut pas faire — être atteint sans viser un champ
+ * de 560 px de large, et signaler que la recherche est une destination à part entière.
+ *
+ * La navigation publique garde son propre `/rechercher` : un visiteur non connecté n'a
+ * pas d'espace personnel, et lui ouvrir `/app/recherche` le renverrait vers la
+ * connexion.
  *
  * Chaque entrée correspond à **un** sujet et à **une seule** page. Deux exceptions
  * historiques ont été regroupées, parce qu'un menu qui propose deux destinations pour la
@@ -102,7 +110,7 @@ export const PUBLIC_NAV: readonly NavItem[] = [
  * redirigent vers leur page d'accueil, pour ne pas casser les liens déjà diffusés.
  */
 export const APP_NAV: readonly NavItem[] = [
-  { href: '/rechercher', label: 'Rechercher', icon: Search },
+  { href: '/app/recherche', label: 'Rechercher', icon: Search },
   { href: '/app', label: 'Tableau de bord', icon: LayoutDashboard },
   { href: '/app/objets', label: 'Mes objets', icon: Package },
   { href: '/app/correspondances', label: 'Correspondances', icon: Link2 },
