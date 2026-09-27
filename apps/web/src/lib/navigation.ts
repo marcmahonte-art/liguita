@@ -62,11 +62,14 @@ export const PUBLIC_NAV: readonly NavItem[] = [
 /**
  * Entrées principales de l'espace connecté.
  *
- * ⚠️ **« Rechercher un objet » n'y figure pas volontairement.** La recherche est
- * l'action n°1 du produit : elle occupe la barre supérieure en permanence et le bouton
- * principal du tableau de bord. Une entrée de menu supplémentaire serait une troisième
- * copie du même lien — et un menu qui répète ce que l'écran d'accueil affiche déjà en
- * plus grand n'aide personne à décider.
+ * ⚠️ **« Rechercher un objet » y figure désormais, contre la décision initiale.** Le
+ * motif qui l'en excluait — la recherche est déjà dans la barre supérieure et sur le
+ * bouton principal du tableau de bord — reste vrai, et un menu qui répète ce que
+ * l'écran d'accueil affiche en plus grand n'aide personne à décider. L'onglet a
+ * néanmoins été ajouté sur demande : c'est l'action la plus fréquente du produit, et
+ * la burying dans une barre de recherche Unique la rend invisible au moment où l'on
+ * cherche un objet précis plutôt qu'à explorer. Elle est placée en tête, avant le
+ * tableau de bord, parce que c'est le premier geste et non un écran de suivi.
  *
  * Chaque entrée correspond à **un** sujet et à **une seule** page. Deux exceptions
  * historiques ont été regroupées, parce qu'un menu qui propose deux destinations pour la
@@ -99,6 +102,7 @@ export const PUBLIC_NAV: readonly NavItem[] = [
  * redirigent vers leur page d'accueil, pour ne pas casser les liens déjà diffusés.
  */
 export const APP_NAV: readonly NavItem[] = [
+  { href: '/rechercher', label: 'Rechercher', icon: Search },
   { href: '/app', label: 'Tableau de bord', icon: LayoutDashboard },
   { href: '/app/objets', label: 'Mes objets', icon: Package },
   { href: '/app/correspondances', label: 'Correspondances', icon: Link2 },

@@ -1,13 +1,6 @@
 'use client';
 
-import {
-  Bookmark,
-  BookmarkCheck,
-  Filter,
-  Search,
-  ShieldCheck,
-  WifiOff,
-} from 'lucide-react';
+import { Bookmark, BookmarkCheck, Filter, Search, ShieldCheck, WifiOff } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -15,9 +8,8 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { CATEGORIES, NEIGHBORHOODS } from '@liguita/config';
 import { Alert, buttonClasses, cn, EmptyState, Skeleton } from '@liguita/ui';
 
-import { searchPublicFoundItems, type PublicFoundSearchItem } from '../../actions/public-found-items';
-import { searchPublicLostItems, type PublicLostSearchItem } from '../../actions/public-lost-items';
 import { saveSearch } from '../../actions/saved-searches';
+import { searchPublicItems, type PublicSearchItem } from '../../actions/public-search';
 import { ItemCard } from '../../../components/public/ItemCard';
 import { LostItemCard } from '../../../components/public/LostItemCard';
 
@@ -26,14 +18,20 @@ const DEBOUNCE_MS = 300;
 
 type KindFilter = 'all' | 'found' | 'lost';
 
+/** Curseur unique : l'ordre est global, donc une seule position suffit à reprendre. */
+interface SearchCursor {
+  eventAt: string | null;
+  kind: string | null;
+  id: string | null;
+}
+
+const NO_CURSOR: SearchCursor = { eventAt: null, kind: null, id: null };
+
 interface SearchState {
-  items: Array<PublicFoundSearchItem | PublicLostSearchItem>;
+  items: PublicSearchItem[];
   isLoading: boolean;
   error: string | null;
-  nextCursorFoundAt: string | null;
-  nextCursorId: string | null;
-  nextCursorLostOccurredAt: string | null;
-  nextCursorLostId: string | null;
+  cursor: SearchCursor;
   hasMore: boolean;
 }
 
@@ -41,10 +39,7 @@ const INITIAL_STATE: SearchState = {
   items: [],
   isLoading: true,
   error: null,
-  nextCursorFoundAt: null,
-  nextCursorId: null,
-  nextCursorLostOccurredAt: null,
-  nextCursorLostId: null,
+  cursor: NO_CURSOR,
   hasMore: false,
 };
 
@@ -70,17 +65,7 @@ export function SearchContent() {
   }>({ status: 'idle' });
 
   const [state, setState] = useState<SearchState>(INITIAL_STATE);
-  const cursorRef = useRef<{
-    foundAt: string | null;
-    id: string | null;
-    lostOccurredAt: string | null;
-    lostId: string | null;
-  }>({
-    foundAt: null,
-    id: null,
-    lostOccurredAt: null,
-    lostId: null,
-  });
+  const cursorRef = useRef<SearchCursor>(NO_CURSOR);
   const requestIdRef = useRef(0);
 
   /* ---------------------------------------------------------------- URLs -- */
@@ -123,23 +108,46 @@ export function SearchContent() {
 
   /* ------------------------------------------------------ filtres → URL ---- */
   useEffect(() => {
-    if (selectedKind !== urlKind || selectedCategory !== urlCategory || selectedNeighborhood !== urlNeighborhood) {
-      replaceUrl({ kind: selectedKind, category: selectedCategory, neighborhood: selectedNeighborhood });
+    if (
+      selectedKind !== urlKind ||
+      selectedCategory !== urlCategory ||
+      selectedNeighborhood !== urlNeighborhood
+    ) {
+      replaceUrl({
+        kind: selectedKind,
+        category: selectedCategory,
+        neighborhood: selectedNeighborhood,
+      });
     }
-  }, [selectedKind, selectedCategory, selectedNeighborhood, urlKind, urlCategory, urlNeighborhood, replaceUrl]);
+  }, [
+    selectedKind,
+    selectedCategory,
+    selectedNeighborhood,
+    urlKind,
+    urlCategory,
+    urlNeighborhood,
+    replaceUrl,
+  ]);
 
   /* -------------------------------------------------------------- requête -- */
+  /**
+   * Un seul appel pour les deux types d'objets.
+   *
+   * ⚠️ L'ordre vient de la base, pas d'une concaténation. Appeler les deux listes
+   * séparément et les accolant produit deux blocs sans ordre entre eux : les 12 premiers
+   * objets trouvés, puis les 12 premiers objets perdus. « Du plus récent au plus
+   * ancien » n'était donc pas respecté, et ne pouvait pas l'être — un tri fait après
+   * coup sur une page tronquée affiche un ordre qui ne vaut plus à la page suivante.
+   */
   const fetchPage = useCallback(
     async (mode: 'reset' | 'more') => {
       const requestId = ++requestIdRef.current;
       const q = (mode === 'reset' ? query : urlQuery).trim();
 
       if (mode === 'reset') {
-        cursorRef.current = { foundAt: null, id: null, lostOccurredAt: null, lostId: null };
-        setState((prev) => ({ ...prev, isLoading: true, error: null }));
-      } else {
-        setState((prev) => ({ ...prev, isLoading: true, error: null }));
+        cursorRef.current = NO_CURSOR;
       }
+      setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
       if (!isOnline) {
         setState((prev) => ({
@@ -151,73 +159,39 @@ export function SearchContent() {
       }
 
       try {
-        const includeFound = selectedKind !== 'lost';
-        const includeLost = selectedKind !== 'found';
-        const foundRequest = includeFound
-          ? searchPublicFoundItems({
-              query: q,
-              categoryCode: urlCategory === 'ALL' ? undefined : urlCategory,
-              neighborhoodSlug: urlNeighborhood === 'ALL' ? undefined : urlNeighborhood,
-              cursorFoundAt: mode === 'more' ? cursorRef.current.foundAt : null,
-              cursorId: mode === 'more' ? cursorRef.current.id : null,
-              limit: PAGE_SIZE,
-            })
-          : Promise.resolve({ items: [], nextCursorFoundAt: null, nextCursorId: null, hasMore: false });
-        const lostRequest = includeLost
-          ? searchPublicLostItems({
-              query: q,
-              categoryCode: urlCategory === 'ALL' ? undefined : urlCategory,
-              neighborhoodSlug: urlNeighborhood === 'ALL' ? undefined : urlNeighborhood,
-              cursorOccurredAt: mode === 'more' ? cursorRef.current.lostOccurredAt : null,
-              cursorId: mode === 'more' ? cursorRef.current.lostId : null,
-              limit: PAGE_SIZE,
-            })
-          : Promise.resolve({ items: [], nextCursorOccurredAt: null, nextCursorId: null, hasMore: false });
-
-        const [foundResult, lostResult] = await Promise.all([foundRequest, lostRequest]);
+        const result = await searchPublicItems({
+          query: q,
+          kind: selectedKind,
+          categoryCode: urlCategory === 'ALL' ? undefined : urlCategory,
+          neighborhoodSlug: urlNeighborhood === 'ALL' ? undefined : urlNeighborhood,
+          cursorEventAt: mode === 'more' ? cursorRef.current.eventAt : null,
+          cursorKind: mode === 'more' ? cursorRef.current.kind : null,
+          cursorId: mode === 'more' ? cursorRef.current.id : null,
+          limit: PAGE_SIZE,
+        });
         if (requestId !== requestIdRef.current) return;
 
-        if ('error' in foundResult && foundResult.error) {
+        if (result.error) {
           setState((prev) => ({
             ...prev,
             isLoading: false,
-            error: foundResult.error ?? 'La recherche a échoué.',
-          }));
-          return;
-        }
-        if ('error' in lostResult && lostResult.error) {
-          setState((prev) => ({
-            ...prev,
-            isLoading: false,
-            error: lostResult.error ?? 'La recherche est indisponible.',
+            error: result.error ?? 'La recherche est indisponible.',
           }));
           return;
         }
 
-        const foundItems = 'items' in foundResult ? foundResult.items : [];
-        const lostItems = 'items' in lostResult ? lostResult.items : [];
-        const nextFoundAt = 'nextCursorFoundAt' in foundResult ? foundResult.nextCursorFoundAt : null;
-        const nextFoundId = 'nextCursorId' in foundResult ? foundResult.nextCursorId : null;
-        const nextLostOccurredAt = 'nextCursorOccurredAt' in lostResult ? lostResult.nextCursorOccurredAt : null;
-        const nextLostId = 'nextCursorId' in lostResult ? lostResult.nextCursorId : null;
         cursorRef.current = {
-          foundAt: nextFoundAt,
-          id: nextFoundId,
-          lostOccurredAt: nextLostOccurredAt,
-          lostId: nextLostId,
+          eventAt: result.nextCursorEventAt,
+          kind: result.nextCursorKind,
+          id: result.nextCursorId,
         };
 
         setState((prev) => ({
-          items: mode === 'more' ? [...prev.items, ...foundItems, ...lostItems] : [...foundItems, ...lostItems],
+          items: mode === 'more' ? [...prev.items, ...result.items] : result.items,
           isLoading: false,
           error: null,
-          nextCursorFoundAt: nextFoundAt,
-          nextCursorId: nextFoundId,
-          nextCursorLostOccurredAt: nextLostOccurredAt,
-          nextCursorLostId: nextLostId,
-          hasMore:
-            (Boolean(nextFoundAt && nextFoundId) && includeFound) ||
-            (Boolean(nextLostOccurredAt && nextLostId) && includeLost),
+          cursor: cursorRef.current,
+          hasMore: result.hasMore,
         }));
       } catch (err) {
         if (requestId !== requestIdRef.current) return;
@@ -297,8 +271,8 @@ export function SearchContent() {
             Rechercher un objet
           </h1>
           <p className="mt-2 text-body text-ink-600">
-             Consultez les objets trouvés et perdus enregistrés à N&apos;Djamena et au Tchad.
-             Aucune donnée personnelle n&apos;est exposée (loi n° 007/PR/2015).
+            Consultez les objets trouvés et perdus enregistrés à N&apos;Djamena et au Tchad. Aucune
+            donnée personnelle n&apos;est exposée (loi n° 007/PR/2015).
           </p>
         </div>
 
@@ -321,7 +295,11 @@ export function SearchContent() {
               <span>Filtres :</span>
             </div>
 
-            <div className="inline-flex rounded-lg bg-ink-100 p-1" role="group" aria-label="Type d'objet">
+            <div
+              className="inline-flex rounded-lg bg-ink-100 p-1"
+              role="group"
+              aria-label="Type d'objet"
+            >
               <button
                 type="button"
                 onClick={() => setSelectedKind('all')}
@@ -412,7 +390,10 @@ export function SearchContent() {
               onClick={() => void handleSaveSearch()}
               disabled={saveState.status === 'saving' || saveState.status === 'saved'}
               className={cn(
-                buttonClasses({ variant: saveState.status === 'saved' ? 'outline' : 'primary', size: 'sm' }),
+                buttonClasses({
+                  variant: saveState.status === 'saved' ? 'outline' : 'primary',
+                  size: 'sm',
+                }),
                 saveState.status === 'saved' && 'border-emerald-300 text-emerald-700',
               )}
               aria-live="polite"
@@ -467,10 +448,7 @@ export function SearchContent() {
           {state.isLoading && uniqueItems.length === 0 ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
               {Array.from({ length: 4 }, (_, i) => (
-                <div
-                  key={i}
-                  className="rounded-2xl border border-ink-200 bg-white p-5 shadow-xs"
-                >
+                <div key={i} className="rounded-2xl border border-ink-200 bg-white p-5 shadow-xs">
                   <Skeleton className="h-6 w-24 rounded-full" />
                   <Skeleton className="mt-4 h-5 w-3/4" />
                   <Skeleton className="mt-2 h-4 w-full" />
@@ -526,15 +504,15 @@ export function SearchContent() {
 
         <div className="mt-10 rounded-2xl border border-ink-200 bg-white p-5 text-caption text-ink-600">
           <p>
-             Explorez aussi{' '}
-             <Link href="/objets-trouves" className="font-semibold text-brand-700 hover:underline">
-               les derniers objets trouvés
-             </Link>{' '}
-             ou{' '}
-             <Link href="/objets-perdus" className="font-semibold text-brand-700 hover:underline">
-               les objets perdus
-             </Link>{' '}
-             au Tchad.
+            Explorez aussi{' '}
+            <Link href="/objets-trouves" className="font-semibold text-brand-700 hover:underline">
+              les derniers objets trouvés
+            </Link>{' '}
+            ou{' '}
+            <Link href="/objets-perdus" className="font-semibold text-brand-700 hover:underline">
+              les objets perdus
+            </Link>{' '}
+            au Tchad.
           </p>
         </div>
       </div>
