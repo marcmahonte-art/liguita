@@ -19,20 +19,33 @@
 -- =============================================================================
 
 
+-- ⚠️ DDL idempotent. Ces objets ont d'abord été créés par une migration locale
+-- intitulée « 20260923001700_contact_disclosure_and_withdrawals.sql », qui n'a
+-- jamais été publiée (elle portait un numéro déjà pris par
+-- `20260923001700_sprint4_correctives.sql` sur `main`). Sur la base de
+-- développement ces objets existent donc déjà : on les recrée sans échouer.
+-- Sur une base neuve, ces gardes sont sans effet.
+
+do $$
+begin
+  if not exists (select 1 from pg_type t join pg_namespace n on n.oid = t.typnamespace
+                 where n.nspname = 'public' and t.typname = 'consent_kind') then
+    create type consent_kind as enum ('CONTACT_DISCLOSURE', 'TERMS', 'PRIVACY');
+  end if;
+end
+$$;
+
 -- Nature du consentement recueilli. Un enum (et non du texte libre) pour que
 -- chaque nature ait un texte de reference versionne, opposable en cas de litige.
-create type consent_kind as enum (
-  'CONTACT_DISCLOSURE',  -- transmettre mon numero au chercheur apres paiement
-  'TERMS',               -- conditions generales d'utilisation
-  'PRIVACY'              -- politique de confidentialite
-);
+-- Valeurs : CONTACT_DISCLOSURE (transmettre mon numero au chercheur apres
+-- paiement), TERMS (conditions generales), PRIVACY (politique de confidentialite).
 
 
 -- -----------------------------------------------------------------------------
 -- 2. Consentements
 -- -----------------------------------------------------------------------------
 
-create table consents (
+create table if not exists consents (
   id            uuid primary key default gen_random_uuid(),
   user_id       uuid not null references profiles(id) on delete cascade,
   kind          consent_kind not null,
@@ -51,10 +64,10 @@ create table consents (
 );
 
 -- Un utilisateur ne signe qu'une fois une version donnee d'une nature donnee.
-create unique index consents_user_kind_version_idx
+create unique index if not exists consents_user_kind_version_idx
   on consents (user_id, kind, version);
 
-create index consents_user_idx on consents (user_id, accepted_at desc);
+create index if not exists consents_user_idx on consents (user_id, accepted_at desc);
 
 -- Vue pratique : qui a un consentement de divulgation encore valide ?
 -- Utilisee par mark_payment_paid et par la garde d'inscription.
@@ -90,12 +103,17 @@ grant select, insert on consents to authenticated;
 -- volontairement limitee a l'insertion : un consentement ne se modifie pas, il
 -- se revoque (update de revoked_at) — et la revocation passe par une fonction
 -- dediee pour horodater proprement.
+-- `drop policy if exists` : la policy existe deja si la migration locale 0017
+-- a ete appliquee (voir la note en tete de fichier).
+drop policy if exists consents_select_self on consents;
 create policy consents_select_self on consents
   for select to authenticated using (user_id = (select auth.uid()));
 
+drop policy if exists consents_insert_self on consents;
 create policy consents_insert_self on consents
   for insert to authenticated with check (user_id = (select auth.uid()));
 
+drop policy if exists consents_staff_read on consents;
 create policy consents_staff_read on consents
   for select to authenticated using (
     (select auth.jwt() ->> 'app_role') in ('MODERATOR', 'ADMIN')
