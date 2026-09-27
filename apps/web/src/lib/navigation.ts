@@ -15,6 +15,7 @@ import {
   Home,
   LayoutDashboard,
   LifeBuoy,
+  Link2,
   Package,
   Search,
   Settings,
@@ -82,12 +83,25 @@ export const PUBLIC_NAV: readonly NavItem[] = [
  *   qu'il s'agissait de recherches enregistrées — et le tableau de bord appelle par
  *   ailleurs « annonces » les objets perdus, ce qui rendait la distinction impossible.
  *
+ * « Correspondances » figure ici parce que c'est l'écran où les deux côtés du service se
+ * rejoignent : mes objets d'un côté, ceux que d'autres ont trouvés de l'autre. Elle était
+ * jusqu'ici accessible seulement par les liens contextuels du tableau de bord et par le
+ * menu de l'en-tête — deux chemins qui supposent de connaître son existence. Or c'est une
+ * destination de travail, pas un réglage : on y va pour répondre à une question (« un
+ * objet a-t-il été trouvé qui est le mien ? »), et cette question se pose tous les jours.
+ * Un écran qui répond à une question courante mais n'est atteignable que par hasard
+ * finit par ne pas être vu.
+ *
+ * Elle est placée après « Mes objets » et non à la fin : c'est l'étape suivante du même
+ * parcours — je déclare, puis je regarde ce que le moteur a trouvé pour moi.
+ *
  * Les routes `/app/transactions` et `/app/annonces` continuent de répondre : elles
  * redirigent vers leur page d'accueil, pour ne pas casser les liens déjà diffusés.
  */
 export const APP_NAV: readonly NavItem[] = [
   { href: '/app', label: 'Tableau de bord', icon: LayoutDashboard },
   { href: '/app/objets', label: 'Mes objets', icon: Package },
+  { href: '/app/correspondances', label: 'Correspondances', icon: Link2 },
   { href: '/app/portefeuille', label: 'Récompenses', icon: Wallet },
   { href: '/app/notifications', label: 'Notifications', icon: Bell },
 ];
@@ -116,8 +130,12 @@ export const APP_NAV_SECONDARY: readonly NavItem[] = [
  *
  * Reflet de `APP_NAV` et non une liste indépendante : le mobile ne doit jamais proposer
  * une navigation différente de celle du desktop, seulement une version à cinq entrées.
- * Les écrans restants (Récompenses, Correspondances, Messages, Aide) restent accessibles
- * via le menu de l'en-tête et via les liens contextuels du tableau de bord.
+ * Les écrans restants (Correspondances, Messages, Aide) restent accessibles via le menu
+ * de l'en-tête, qui reprend `APP_NAV`, et via les liens contextuels du tableau de bord.
+ *
+ * « Correspondances » n'occupe pas une des cinq places : elles sont prises, et le
+ * remplacer par « Objets » ou « Alertes » coûterait un écran plus fréquent que lui. Sur
+ * mobile, la barre du haut affiche déjà la même liste que la barre latérale.
  *
  * ⚠️ « Notifications » y figure pour tenir les cinq entrées. Ce n'est pas une
  * destination nouvelle : c'est la seule entrée de `APP_NAV` qui n'avait aucun équivalent
