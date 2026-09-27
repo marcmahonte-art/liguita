@@ -53,7 +53,6 @@ export interface NavItem {
 export const PUBLIC_NAV: readonly NavItem[] = [
   { href: '/', label: 'Accueil', icon: Home },
   { href: '/rechercher', label: 'Rechercher', icon: Search },
-  { href: '/objets-perdus', label: 'Objets perdus', icon: Package },
   { href: '/business', label: 'Entreprises', icon: Building2 },
 ];
 

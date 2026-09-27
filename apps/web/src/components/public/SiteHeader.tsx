@@ -83,16 +83,34 @@ export function SiteHeader() {
           </ul>
         </nav>
 
-        <button
-          type="button"
-          onClick={() => setIsMenuOpen((open) => !open)}
-          aria-expanded={isMenuOpen}
-          aria-controls="menu-mobile"
-          aria-label={isMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
-          className="inline-flex size-12 items-center justify-center rounded-lg text-ink-900 hover:bg-ink-100 lg:hidden"
-        >
-          {isMenuOpen ? <X aria-hidden size={24} /> : <Menu aria-hidden size={24} />}
-        </button>
+        <div className="flex items-center gap-3">
+          {!authLoading && !identity ? (
+            <Link
+              href="/connexion"
+              className={cn(buttonClasses({ variant: 'primary' }), 'hidden rounded-full px-6 font-bold lg:inline-flex')}
+            >
+              Connexion
+            </Link>
+          ) : !authLoading && identity ? (
+            <Link
+              href="/app"
+              className={cn(buttonClasses({ variant: 'primary' }), 'hidden rounded-full px-6 font-bold lg:inline-flex')}
+            >
+              Mon espace
+            </Link>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={() => setIsMenuOpen((open) => !open)}
+            aria-expanded={isMenuOpen}
+            aria-controls="menu-mobile"
+            aria-label={isMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+            className="inline-flex size-12 items-center justify-center rounded-lg text-ink-900 hover:bg-ink-100 lg:hidden"
+          >
+            {isMenuOpen ? <X aria-hidden size={24} /> : <Menu aria-hidden size={24} />}
+          </button>
+        </div>
       </div>
 
       {/* Panneau mobile */}
