@@ -171,10 +171,10 @@ export default function ParametresPage() {
           Les recherches enregistrées qui vous préviennent lorsqu’un objet correspond.
         </p>
         <Link
-          href="/app/annonces"
+          href="/app/avis"
           className={buttonClasses({ variant: 'outline', size: 'md', className: 'mt-4' })}
         >
-          Gérer mes annonces
+          Gérer mes avis de recherche
           <ArrowRight size={16} aria-hidden />
         </Link>
       </Card>

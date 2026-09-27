@@ -29,7 +29,8 @@ const EVIDENCE_EXTENSIONS: Record<string, string> = {
   'image/avif': 'avif',
 };
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const EVIDENCE_PATH_PATTERN = /^VERIFICATION\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png|webp|avif)$/i;
+const EVIDENCE_PATH_PATTERN =
+  /^VERIFICATION\/(?:identities\/[0-9a-f-]{36}|[0-9a-f-]{36})\/[0-9a-f-]{36}\.(jpg|png|webp|avif)$/i;
 
 export interface VerificationQuestionView {
   readonly id: string;
@@ -398,23 +399,24 @@ export async function submitVerificationAnswers(
     };
   }
 
+  // Association de la pièce d'identité à la réponse de vérification
+  if (idCardPhotoPath) {
+    const { data: firstAnswer } = await service
+      .from('verification_answers')
+      .select('id')
+      .eq('claim_id', claimId)
+      .limit(1)
+      .maybeSingle();
+    if (firstAnswer) {
+      await service
+        .from('verification_answers')
+        .update({ answer_photo: idCardPhotoPath })
+        .eq('id', firstAnswer.id);
+    }
+  }
+
   // Effets de bord métier
   if (decision === 'APPROVED') {
-    if (idCardPhotoPath) {
-      const { data: firstAnswer } = await service
-        .from('verification_answers')
-        .select('id')
-        .eq('claim_id', claimId)
-        .limit(1)
-        .maybeSingle();
-      if (firstAnswer) {
-        await service
-          .from('verification_answers')
-          .update({ answer_photo: idCardPhotoPath })
-          .eq('id', firstAnswer.id);
-      }
-    }
-
     await service.from('matches').update({ status: 'CLAIMED' }).eq('id', matchId);
     await service
       .from('lost_items')
@@ -589,6 +591,7 @@ export async function uploadClaimantIdCard(
   const matchId = String(formData.get('matchId') ?? '').trim();
   const fileValue = formData.get('idCard');
   const file = fileValue instanceof File ? fileValue : null;
+  const previousPath = String(formData.get('previousPath') ?? '').trim();
 
   if (!UUID_PATTERN.test(matchId) || !file) {
     return { ok: false, error: 'Fichier ou correspondance invalide.' };
@@ -598,16 +601,16 @@ export async function uploadClaimantIdCard(
   }
 
   const service = tryCreateServiceClient();
-  if (!service) return { ok: false, error: 'Service indisponible.' };
+  const db = service ?? supabase;
 
-  const { data: match } = await service
+  const { data: match } = await db
     .from('matches')
     .select('lost_item_id')
     .eq('id', matchId)
     .maybeSingle();
   if (!match) return { ok: false, error: 'Correspondance introuvable.' };
 
-  const { data: lost } = await service
+  const { data: lost } = await db
     .from('lost_items')
     .select('user_id')
     .eq('id', match.lost_item_id)
@@ -618,12 +621,19 @@ export async function uploadClaimantIdCard(
 
   const ext = EVIDENCE_EXTENSIONS[file.type] ?? 'jpg';
   const path = `VERIFICATION/identities/${matchId}/${crypto.randomUUID()}.${ext}`;
+
+  // Upload avec le client utilisateur authentifié (validé par les politiques RLS)
   const { error: uploadError } = await supabase.storage
     .from('verification-evidence')
     .upload(path, file, { contentType: file.type, upsert: false });
   if (uploadError) return { ok: false, error: uploadError.message };
 
-  const { data: signed } = await service.storage
+  // Suppression de l'ancienne pièce d'identité en cas de remplacement
+  if (previousPath && EVIDENCE_PATH_PATTERN.test(previousPath) && previousPath.includes(matchId)) {
+    await supabase.storage.from('verification-evidence').remove([previousPath]);
+  }
+
+  const { data: signed } = await (service ?? supabase).storage
     .from('verification-evidence')
     .createSignedUrl(path, 3600);
   return { ok: true, path, signedUrl: signed?.signedUrl };

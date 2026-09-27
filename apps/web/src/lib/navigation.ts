@@ -10,13 +10,11 @@
  */
 
 import {
-  ArrowLeftRight,
   Bell,
   Building2,
   Home,
   LayoutDashboard,
   LifeBuoy,
-  Megaphone,
   Package,
   Search,
   Settings,
@@ -69,15 +67,28 @@ export const PUBLIC_NAV: readonly NavItem[] = [
  * copie du même lien — et un menu qui répète ce que l'écran d'accueil affiche déjà en
  * plus grand n'aide personne à décider.
  *
- * De même, « Mon portefeuille » est libellé « Récompenses » : c'est la question que la
- * personne se pose (« Combien ai-je gagné ? »), pas le nom de l'instrument bancaire.
+ * Chaque entrée correspond à **un** sujet et à **une seule** page. Deux exceptions
+ * historiques ont été regroupées, parce qu'un menu qui propose deux destinations pour la
+ * même question oblige à choisir entre deux réponses identiques :
+ *
+ * - « Mon portefeuille » est libellé « Récompenses » : c'est la question que la personne
+ *   se pose (« Combien ai-je gagné ? »), pas le nom de l'instrument bancaire. La page
+ *   porte aussi l'historique des transactions, qui avait sa propre entrée (« Mes
+ *   transactions ») et son propre menu — un deuxième écran pour exactement la même
+ *   donnée. Elle y répond désormais par une redirection.
+ * - Les recherches enregistrées vivaient sous deux libellés, « Mes annonces » et « Mes
+ *   avis de recherche », pour une seule liste. Elles sont regroupées sous « Mes avis de
+ *   recherche ». Le libellé d'origine, « Mes annonces », promettait des annonces alors
+ *   qu'il s'agissait de recherches enregistrées — et le tableau de bord appelle par
+ *   ailleurs « annonces » les objets perdus, ce qui rendait la distinction impossible.
+ *
+ * Les routes `/app/transactions` et `/app/annonces` continuent de répondre : elles
+ * redirigent vers leur page d'accueil, pour ne pas casser les liens déjà diffusés.
  */
 export const APP_NAV: readonly NavItem[] = [
   { href: '/app', label: 'Tableau de bord', icon: LayoutDashboard },
   { href: '/app/objets', label: 'Mes objets', icon: Package },
-  { href: '/app/annonces', label: 'Mes annonces', icon: Megaphone },
   { href: '/app/portefeuille', label: 'Récompenses', icon: Wallet },
-  { href: '/app/transactions', label: 'Transactions', icon: ArrowLeftRight },
   { href: '/app/notifications', label: 'Notifications', icon: Bell },
 ];
 
@@ -105,14 +116,20 @@ export const APP_NAV_SECONDARY: readonly NavItem[] = [
  *
  * Reflet de `APP_NAV` et non une liste indépendante : le mobile ne doit jamais proposer
  * une navigation différente de celle du desktop, seulement une version à cinq entrées.
- * Les écrans restants (Correspondances, Messages, Aide) restent accessibles via le menu
- * de l'en-tête et via les liens contextuels du tableau de bord.
+ * Les écrans restants (Récompenses, Correspondances, Messages, Aide) restent accessibles
+ * via le menu de l'en-tête et via les liens contextuels du tableau de bord.
+ *
+ * ⚠️ « Notifications » y figure pour tenir les cinq entrées. Ce n'est pas une
+ * destination nouvelle : c'est la seule entrée de `APP_NAV` qui n'avait aucun équivalent
+ * en bas d'écran, alors qu'une notification non lue est précisément la raison d'ouvrir
+ * l'application en premier. Les recherches enregistrées, elles, n'ont pas de place ici —
+ * elles se gèrent depuis les paramètres, là où l'on règle ses alertes.
  */
 export const APP_BOTTOM_NAV: readonly NavItem[] = [
   { href: '/app', label: 'Accueil', icon: Home },
   { href: '/app/objets', label: 'Objets', icon: Package },
-  { href: '/app/annonces', label: 'Annonces', icon: Megaphone },
   { href: '/app/portefeuille', label: 'Récompenses', icon: Wallet },
+  { href: '/app/notifications', label: 'Alertes', icon: Bell },
   { href: '/app/profil', label: 'Profil', icon: User },
 ];
 

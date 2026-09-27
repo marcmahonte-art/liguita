@@ -7,19 +7,26 @@ import { Alert, Badge, buttonClasses, Card, Input, Skeleton } from '@liguita/ui'
 
 import { getWallet, requestAirtelWithdrawal, type WalletSummary } from '../../actions/wallet';
 import { formatShortDate } from '../../../lib/format';
+import { walletSourceLabel } from '../../../lib/wallet-labels';
 
+/**
+ * « Récompenses » — l'unique page financière de l'espace connecté.
+ *
+ * ⚠️ Elle absorbe l'ancienne page « Mes transactions ». Le solde, les retraits et
+ * l'historique des écritures formaient deux pages qui affichaient la même chose à deux
+ * endroits différents : deux menus pour un seul sujet, et deux listes que l'on pouvait
+ * faire diverger. La question que l'on se pose — « combien ai-je gagné, et où est passé
+ * l'argent ? » — a une seule réponse, donc une seule page.
+ *
+ * `/app/transactions` répond toujours, par une redirection : les liens enregistrés et les
+ * historiques de discussions ne doivent pas mener à une 404.
+ */
 const EMPTY_WALLET: WalletSummary = {
   availableBalance: 0,
   pendingBalance: 0,
   currency: 'XAF',
   entries: [],
   withdrawals: [],
-};
-
-const SOURCE_LABELS: Record<string, string> = {
-  REWARD: 'Recompense objet trouvé',
-  REWARD_RELEASE: 'Recompense disponible',
-  WITHDRAWAL: 'Retrait Airtel Money',
 };
 
 export default function PortefeuillePage() {
@@ -74,14 +81,14 @@ export default function PortefeuillePage() {
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-2xl font-extrabold text-ink-950 sm:text-3xl">
-          Mon portefeuille
+          Mes récompenses
         </h1>
         <p className="mt-1 text-body text-ink-600">
-          Vos récompenses, paiements et retraits Airtel Money au même endroit.
+          Historique de vos récompenses et opérations Airtel Money.
         </p>
       </div>
 
-      {error ? <Alert tone="danger" title="Portefeuille" action={<button type="button" onClick={() => void load()} className="text-caption font-bold underline">Réessayer</button>}>{error}</Alert> : null}
+      {error ? <Alert tone="danger" title="Récompenses" action={<button type="button" onClick={() => void load()} className="text-caption font-bold underline">Réessayer</button>}>{error}</Alert> : null}
       {message ? <Alert tone="success" title={message} /> : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -152,7 +159,7 @@ export default function PortefeuillePage() {
       ) : null}
 
       <Card>
-        <h2 className="font-display text-body-lg font-bold text-ink-950">Dernières transactions</h2>
+        <h2 className="font-display text-body-lg font-bold text-ink-950">Historique des transactions</h2>
         {wallet.entries.length === 0 ? (
           <p className="mt-3 text-body-sm text-ink-600">Aucune transaction pour le moment.</p>
         ) : (
@@ -160,7 +167,7 @@ export default function PortefeuillePage() {
             {wallet.entries.map((entry) => (
               <li key={entry.id} className="flex items-center justify-between gap-3 py-3">
                 <div>
-                  <p className="text-body-sm font-semibold text-ink-900">{SOURCE_LABELS[entry.sourceType] ?? entry.sourceType}</p>
+                  <p className="text-body-sm font-semibold text-ink-900">{walletSourceLabel(entry.sourceType)}</p>
                   <p className="text-caption text-ink-500">{formatShortDate(entry.createdAt)}</p>
                 </div>
                 <p className={entry.direction === 'CREDIT' ? 'font-bold text-success-700' : 'font-bold text-danger-700'}>

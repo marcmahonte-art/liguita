@@ -32,6 +32,11 @@ export interface ActiveAnnouncement {
  * Le montant affiché est la récompense *estimée* issue de la grille tarifaire de la
  * classe de l'objet. C'est un repère, pas une promesse : le montant définitif est
  * confirmé dans la mise en relation, et c'est là qu'il est affiché comme tel.
+ *
+ * ⚠️ Ici, « annonce » désigne un **objet perdu** en cours de recherche, pas une
+ * recherche enregistrée. Le lien « Tout voir » mène donc à « Mes objets », qui les
+ * liste : il menait auparavant à une page de recherches enregistrées, ce qui n'avait rien
+ * à voir avec les lignes affichées juste au-dessus.
  */
 export function ActiveAnnouncementsPanel({
   announcements,
@@ -48,7 +53,7 @@ export function ActiveAnnouncementsPanel({
           Annonces actives
         </h2>
         <Link
-          href="/app/annonces"
+          href="/app/objets"
           className="shrink-0 text-caption font-bold text-brand-600 hover:underline"
         >
           Tout voir

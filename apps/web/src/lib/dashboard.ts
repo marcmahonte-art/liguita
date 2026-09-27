@@ -18,6 +18,7 @@ import type { WalletEntryItem } from '../app/actions/wallet';
 import type { MatchListItem } from '../app/actions/matches';
 import type { NotificationListItem } from '../app/actions/notifications';
 import { isActiveLostStatus, statusLabel, statusTone } from './item-status';
+import { walletSourceLabel } from './wallet-labels';
 import type { Tone } from './icons';
 
 /* -------------------------------------------------------------------------- */
@@ -43,18 +44,6 @@ export interface ActivityEvent {
 
 const OWNER_ITEM_HREF = (item: OwnerItemListItem) => `/app/objets/${item.kind.toLowerCase()}/${item.id}`;
 const MATCH_HREF = (match: MatchListItem) => `/app/correspondances/${match.id}`;
-
-/** Libellés du relevé → intitulé d'événement lisible. */
-const LEDGER_LABELS: Record<string, string> = {
-  REWARD: 'Récompense reçue',
-  REWARD_RELEASE: 'Récompense disponible',
-  WITHDRAWAL: 'Retrait Airtel Money',
-};
-
-/** Libellés du wallet → nature d'événement financier. */
-function ledgerSourceType(entry: WalletEntryItem): string {
-  return entry.sourceType;
-}
 
 /**
  * Construit l'UNIQUE flux d'activité du tableau de bord.
@@ -105,16 +94,16 @@ export function buildActivityFeed(
 
   for (const entry of input.entries) {
     if (entry.direction !== 'CREDIT') continue;
-    const label = LEDGER_LABELS[ledgerSourceType(entry)] ?? 'Récompense reçue';
     events.push({
       id: `entry-${entry.id}`,
       type: 'RECOMPENSE',
-      title: label,
+      title: walletSourceLabel(entry.sourceType),
       status: entry.status === 'PENDING' ? 'En attente de validation' : 'Créditée',
       tone: entry.status === 'PENDING' ? 'pending' : 'found',
       icon: 'gift',
       occurredAt: entry.createdAt,
-      href: '/app/transactions',
+      // « Récompenses » : la page qui porte l'historique complet des écritures.
+      href: '/app/portefeuille',
       amountXaf: entry.status === 'PENDING' ? undefined : entry.amount,
     });
   }

@@ -112,6 +112,9 @@ export default function VerificationPage() {
     const formData = new FormData();
     formData.set('matchId', matchId);
     formData.set('idCard', file);
+    if (idCardPath) {
+      formData.set('previousPath', idCardPath);
+    }
     const res = await uploadClaimantIdCard(formData);
     setIsUploadingId(false);
     if (!res.ok) {

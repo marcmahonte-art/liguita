@@ -12,8 +12,8 @@ describe('safeRedirectPath', () => {
   it('accepte un chemin interne', () => {
     expect(safeRedirectPath('/app')).toBe('/app');
     expect(safeRedirectPath('/declarer/perdu')).toBe('/declarer/perdu');
-    expect(safeRedirectPath('/app/annonces?q=perdu&ville=ndjamena')).toBe(
-      '/app/annonces?q=perdu&ville=ndjamena',
+    expect(safeRedirectPath('/app/avis?q=perdu&ville=ndjamena')).toBe(
+      '/app/avis?q=perdu&ville=ndjamena',
     );
   });
 
