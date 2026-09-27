@@ -8,6 +8,8 @@ import { Badge, buttonClasses, Card } from '@liguita/ui';
 
 import { fetchPublicLostItem } from '../../../../lib/public-lost-items';
 import { formatLongDate } from '../../../../lib/format';
+import { isSensitivePhoto } from '../../../../lib/photo-privacy';
+import { ItemPhotoImage } from '../../../../components/public/ItemPhotoImage';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,6 +32,10 @@ export default async function PublicLostItemPage({ params }: { params: Promise<{
   const city = findCity(item.city_slug);
   const neighborhood = item.neighborhood_slug ? findNeighborhood(item.neighborhood_slug) : undefined;
   const location = [neighborhood?.name ?? city?.name ?? item.city_slug].filter(Boolean).join(' · ');
+  const isSensitive = isSensitivePhoto({
+    categoryCode: item.category_code,
+    isBlurred: item.photoIsBlurred,
+  });
 
   return (
     <div className="bg-ink-50/40 min-h-screen py-10 sm:py-14">
@@ -57,11 +63,16 @@ export default async function PublicLostItemPage({ params }: { params: Promise<{
           {item.photos.length > 0 ? (
             <div className="grid grid-cols-1 gap-2 bg-ink-100 sm:grid-cols-2">
               {item.photos.map((photo, index) => (
-                <div key={photo} className={index === 0 ? 'aspect-[4/3] sm:col-span-2' : 'aspect-square'}>
-                  <img
+                <div
+                  key={photo}
+                  className={
+                    `relative ${index === 0 ? 'aspect-[4/3] sm:col-span-2' : 'aspect-square'}`
+                  }
+                >
+                  <ItemPhotoImage
                     src={photo}
                     alt={`Photo ${index + 1} de l’objet perdu ${item.title}`}
-                    className="h-full w-full object-cover"
+                    isSensitive={isSensitive}
                   />
                 </div>
               ))}

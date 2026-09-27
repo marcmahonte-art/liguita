@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { createServiceClient } from './supabase/service';
+import { fetchBlurredItemIds, type ItemPhotoReader } from './item-photos';
 
 export interface PublicLostItemCard {
   id: string;
@@ -15,6 +16,8 @@ export interface PublicLostItemCard {
   status: string;
   created_at: string;
   photoUrl: string | null;
+  /** Voir `PublicLostItemDetail.photoIsBlurred`. */
+  photoIsBlurred: boolean;
 }
 
 const PHOTO_PATH_PATTERN = /^LOST\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png|webp|avif)$/i;
@@ -26,6 +29,15 @@ function text(row: Record<string, unknown>, key: string): string | null {
 
 export interface PublicLostItemDetail extends PublicLostItemCard {
   photos: string[];
+  /**
+   * Vrai dès qu'**une seule** photo de la fiche est marquée sensible.
+   *
+   * ⚠️ On ne floute pas photo par photo. Une fiche dont la deuxième image est floutée
+   * et la première nette indique elle-même que la deuxième est un document : le
+   * traitement sélectif en dit plus que le traitement uniforme. La fiche est donc
+   * floutée en entier, ou pas du tout.
+   */
+  photoIsBlurred: boolean;
 }
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -44,14 +56,16 @@ export async function fetchPublicLostItem(id: string): Promise<PublicLostItemDet
 
   const { data: photoRows, error: photoError } = await service
     .from('item_photos')
-    .select('url')
+    .select('url, is_blurred')
     .eq('item_kind', 'LOST')
     .eq('item_id', id)
     .order('sort_order', { ascending: true });
   if (photoError) throw new Error(photoError.message);
 
   const photos: string[] = [];
+  let anyBlurred = false;
   for (const row of photoRows ?? []) {
+    if (row.is_blurred === true) anyBlurred = true;
     if (!PHOTO_PATH_PATTERN.test(row.url) || !row.url.startsWith(`LOST/${id}/`)) continue;
     const signed = await service.storage.from('item-photos').createSignedUrl(row.url, 60);
     if (signed.data?.signedUrl) photos.push(signed.data.signedUrl);
@@ -70,6 +84,7 @@ export async function fetchPublicLostItem(id: string): Promise<PublicLostItemDet
     status: data.status,
     created_at: data.created_at,
     photoUrl: photos[0] ?? null,
+    photoIsBlurred: anyBlurred,
     photos,
   };
 }
@@ -81,9 +96,19 @@ export async function fetchPublicLostItems(limit = 24): Promise<PublicLostItemCa
   });
   if (error) throw new Error(error.message);
 
+  const rows = (Array.isArray(data) ? data : []) as Record<string, unknown>[];
+
+  /* La RPC ne renvoie que `photo_path`. Le drapeau de floutage doit être lu à part,
+     et en une seule requête pour toute la page : une requête par objet porterait le
+     nombre d'allers-retours à deux par vignette, sur une page qui en affiche vingt. */
+  const blurredItemIds = await fetchBlurredItemIds(
+    service as unknown as ItemPhotoReader,
+    rows.map((row) => text(row, 'id')).filter((id): id is string => id !== null),
+    'LOST',
+  );
+
   return Promise.all(
-    (Array.isArray(data) ? data : []).map(async (value) => {
-      const row = value as Record<string, unknown>;
+    rows.map(async (row) => {
       const id = text(row, 'id');
       const categoryCode = text(row, 'category_code');
       const itemTypeCode = text(row, 'item_type_code');
@@ -122,6 +147,7 @@ export async function fetchPublicLostItems(limit = 24): Promise<PublicLostItemCa
         status,
         created_at: createdAt,
         photoUrl,
+        photoIsBlurred: blurredItemIds.has(id),
       } satisfies PublicLostItemCard;
     }),
   ).then((items) => items.filter((item): item is PublicLostItemCard => item !== null));

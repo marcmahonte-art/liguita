@@ -53,8 +53,13 @@ export default async function FoundItemsPage() {
 
         {items.length > 0 ? (
           <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {items.map(({ item, photoUrl }) => (
-              <ItemCard key={item.id} item={item} photoUrl={photoUrl} />
+            {items.map(({ item, photoUrl, photoIsBlurred }) => (
+              <ItemCard
+                key={item.id}
+                item={item}
+                photoUrl={photoUrl}
+                photoIsBlurred={photoIsBlurred}
+              />
             ))}
           </div>
         ) : (

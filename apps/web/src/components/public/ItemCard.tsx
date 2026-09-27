@@ -5,13 +5,17 @@ import { findCategory, findCity, findNeighborhood } from '@liguita/config';
 import { Badge, buttonClasses, ClassBadge } from '@liguita/ui';
 
 import { formatLongDate } from '../../lib/format';
+import { isSensitivePhoto } from '../../lib/photo-privacy';
 import type { PublicItem } from '../../lib/search';
+import { ItemPhotoImage } from './ItemPhotoImage';
 
 export interface ItemCardProps {
   item: PublicItem;
   /** Badge « correspondance probable » affiché en priorité (matching). */
   matchLabel?: string;
   photoUrl?: string | null;
+  /** `item_photos.is_blurred`. La catégorie de l'objet est déjà dans `item`. */
+  photoIsBlurred?: boolean;
   className?: string;
 }
 
@@ -26,7 +30,13 @@ export interface ItemCardProps {
  * qui cherche — il déclare sa perte avec `?match={id}` pour amorcer le
  * rapprochement.
  */
-export function ItemCard({ item, matchLabel, photoUrl, className }: ItemCardProps) {
+export function ItemCard({
+  item,
+  matchLabel,
+  photoUrl,
+  photoIsBlurred,
+  className,
+}: ItemCardProps) {
   const category = findCategory(item.category_code);
   const city = findCity(item.city_slug);
   const neighborhood = item.neighborhood_slug
@@ -38,6 +48,10 @@ export function ItemCard({ item, matchLabel, photoUrl, className }: ItemCardProp
   ]
     .filter(Boolean)
     .join(' · ');
+  const isSensitive = isSensitivePhoto({
+    categoryCode: item.category_code,
+    isBlurred: photoIsBlurred,
+  });
 
   return (
     <article
@@ -50,10 +64,10 @@ export function ItemCard({ item, matchLabel, photoUrl, className }: ItemCardProp
           décalage de mise en page, non. */}
       <div className="relative aspect-[4/3] overflow-hidden bg-ink-100">
         {photoUrl ? (
-          <img
+          <ItemPhotoImage
             src={photoUrl}
             alt={`Photo de l’objet trouvé : ${item.title}`}
-            className="h-full w-full object-cover"
+            isSensitive={isSensitive}
           />
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-ink-400">

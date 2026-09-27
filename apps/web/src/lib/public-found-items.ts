@@ -6,6 +6,14 @@ import { toPublicItem, type PublicItem } from './search';
 export interface PublicFoundItemCard {
   item: PublicItem;
   photoUrl: string | null;
+  /**
+   * Vrai si la photo porte un document à ne pas publier en clair.
+   *
+   * ⚠️ Ce drapeau ne dérive pas de la catégorie mais de `item_photos.is_blurred`, écrit
+   * à l'envoi : c'est ce qui permet de masquer une photo précise. `ItemCard` le
+   * combine de toute façon avec la catégorie.
+   */
+  photoIsBlurred: boolean;
 }
 
 const PHOTO_PATH_PATTERN = /^FOUND\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|png|webp|avif)$/i;
@@ -43,18 +51,22 @@ export async function fetchPublicFoundItems(limit = 24): Promise<PublicFoundItem
       });
       const { data: photoRows, error: photoError } = await service
         .from('item_photos')
-        .select('url')
+        .select('url, is_blurred')
         .eq('item_kind', 'FOUND')
         .eq('item_id', item.id)
         .order('sort_order', { ascending: true })
         .limit(1);
-      if (photoError || !photoRows?.[0]) return { item, photoUrl: null };
+      if (photoError || !photoRows?.[0]) return { item, photoUrl: null, photoIsBlurred: false };
       const photoPath = photoRows[0].url;
       if (!PHOTO_PATH_PATTERN.test(photoPath) || !photoPath.startsWith(`FOUND/${item.id}/`)) {
-        return { item, photoUrl: null };
+        return { item, photoUrl: null, photoIsBlurred: false };
       }
       const signed = await service.storage.from('item-photos').createSignedUrl(photoPath, 60);
-      return { item, photoUrl: signed.data?.signedUrl ?? null };
+      return {
+        item,
+        photoUrl: signed.data?.signedUrl ?? null,
+        photoIsBlurred: photoRows[0].is_blurred === true,
+      };
     }),
   );
 }

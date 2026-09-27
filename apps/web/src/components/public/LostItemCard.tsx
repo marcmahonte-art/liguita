@@ -5,8 +5,10 @@ import { findCategory, findCity, findNeighborhood } from '@liguita/config';
 import { Badge, buttonClasses } from '@liguita/ui';
 
 import { formatLongDate } from '../../lib/format';
+import { isSensitivePhoto } from '../../lib/photo-privacy';
 import type { PublicLostItemCard } from '../../lib/public-lost-items';
 import type { PublicLostSearchItem } from '../../app/actions/public-lost-items';
+import { ItemPhotoImage } from './ItemPhotoImage';
 
 const STATUS_LABELS: Record<string, string> = {
   DECLARED: 'Objet perdu',
@@ -18,15 +20,19 @@ export function LostItemCard({ item }: { item: PublicLostItemCard | PublicLostSe
   const city = findCity(item.city_slug);
   const neighborhood = item.neighborhood_slug ? findNeighborhood(item.neighborhood_slug) : undefined;
   const location = [neighborhood?.name ?? city?.name ?? item.city_slug].filter(Boolean).join(' · ');
+  const isSensitive = isSensitivePhoto({
+    categoryCode: item.category_code,
+    isBlurred: item.photoIsBlurred,
+  });
 
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-ink-200 bg-white shadow-xs transition hover:border-brand-300 hover:shadow-card">
       <div className="relative aspect-[4/3] overflow-hidden bg-ink-100">
         {item.photoUrl ? (
-          <img
+          <ItemPhotoImage
             src={item.photoUrl}
             alt={`Photo de l’objet perdu : ${item.title}`}
-            className="h-full w-full object-cover"
+            isSensitive={isSensitive}
           />
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-ink-400">

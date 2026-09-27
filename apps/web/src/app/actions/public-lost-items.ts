@@ -1,5 +1,6 @@
 'use server';
 
+import { fetchBlurredItemIds, type ItemPhotoReader } from '../../lib/item-photos';
 import { createServiceClient } from '../../lib/supabase/service';
 
 export interface PublicLostSearchItem {
@@ -16,6 +17,8 @@ export interface PublicLostSearchItem {
   status: string;
   created_at: string;
   photoUrl: string | null;
+  /** Voir `PublicLostItemCard.photoIsBlurred`. */
+  photoIsBlurred: boolean;
 }
 
 export interface SearchPublicLostItemsInput {
@@ -58,6 +61,17 @@ export async function searchPublicLostItems(
     if (error) throw new Error(error.message);
 
     const rows = Array.isArray(data) ? data : [];
+
+    /* Une seule requête pour toute la page : `photo_path` ne dit pas si la photo est
+       sensible. Voir `fetchBlurredItemIds`. */
+    const blurredItemIds = await fetchBlurredItemIds(
+      service as unknown as ItemPhotoReader,
+      rows
+        .map((value) => text(value as Record<string, unknown>, 'id'))
+        .filter((id): id is string => id !== null),
+      'LOST',
+    );
+
     const items = await Promise.all(
       rows.map(async (value) => {
         const row = value as Record<string, unknown>;
@@ -94,6 +108,7 @@ export async function searchPublicLostItems(
           status,
           created_at: createdAt,
           photoUrl,
+          photoIsBlurred: blurredItemIds.has(id),
         } satisfies PublicLostSearchItem;
       }),
     );

@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '../../lib/supabase/server';
+import { isSensitiveCategoryCode } from '../../lib/photo-privacy';
 
 const BUCKET = 'item-photos';
 const SIGNED_URL_TTL_SECONDS = 60;
@@ -80,6 +81,31 @@ async function verifyItemAccess(
   return !error && data === true;
 }
 
+/**
+ * La photo jointe doit-elle être masquée sur les pages publiques ?
+ *
+ * ⚠️ La réponse vient de la **catégorie de l'objet**, lue en base, et non d'un
+ * choix de l'utilisateur : « cette photo est sensible » se décide à l'envoi, sinon il
+ * suffit d'oublier la case — et l'oubli est le cas par défaut.
+ *
+ * En cas de lecture impossible, on masque. Le coût d'un floutage à tort est une photo
+ * un peu floue ; le coût de l'inverse est un numéro de permis publié.
+ */
+async function shouldBlurUploadedPhoto(
+  supabase: SupabaseClient,
+  itemKind: 'LOST' | 'FOUND',
+  itemId: string,
+): Promise<boolean> {
+  const table = itemKind === 'LOST' ? 'lost_items' : 'found_items';
+  const { data, error } = await supabase
+    .from(table)
+    .select('category_code')
+    .eq('id', itemId)
+    .maybeSingle();
+  if (error || !data) return true;
+  return isSensitiveCategoryCode(data.category_code as string | null);
+}
+
 export async function uploadItemPhoto(formData: FormData): Promise<UploadItemPhotoResult> {
   const supabase = await createClient();
   const {
@@ -151,16 +177,20 @@ export async function uploadItemPhoto(formData: FormData): Promise<UploadItemPho
     return { success: false, error: uploadError.message };
   }
 
+  const isBlurred = await shouldBlurUploadedPhoto(supabase, itemKind, itemId);
+
   const { data: photo, error: insertError } = await supabase
     .from('item_photos')
     .insert({
-       item_id: itemId,
-       item_kind: itemKind,
-       url: path,
-       sort_order: sortOrder,
+      item_id: itemId,
+      item_kind: itemKind,
+      url: path,
+      sort_order: sortOrder,
+      is_blurred: isBlurred,
     })
     .select('id')
     .single();
+
 
   if (insertError || !photo) {
     await supabase.storage.from(BUCKET).remove([path]);
