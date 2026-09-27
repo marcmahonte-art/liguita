@@ -101,7 +101,7 @@ export default function CorrespondancesPage() {
               <Link href="/declarer/perdu" className={buttonClasses({ variant: 'primary' })}>
                 J'ai perdu un objet
               </Link>
-              <Link href="/rechercher" className={buttonClasses({ variant: 'outline' })}>
+              <Link href="/app/recherche" className={buttonClasses({ variant: 'outline' })}>
                 Rechercher
               </Link>
             </div>

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -61,7 +61,7 @@ export default function AnnoncesPage() {
             Vos avis de recherche actifs — recevez une alerte dès qu'un objet correspondant est publié.
           </p>
         </div>
-        <Link href="/rechercher" className={buttonClasses({ variant: 'primary', size: 'sm' })}>
+        <Link href="/app/recherche" className={buttonClasses({ variant: 'primary', size: 'sm' })}>
           Lancer une recherche
         </Link>
       </div>
@@ -79,7 +79,7 @@ export default function AnnoncesPage() {
           title="Aucune annonce"
           description="Enregistrez une recherche pour être notifié dès qu'un objet correspondant est trouvé."
           action={
-            <Link href="/rechercher" className={buttonClasses({ variant: 'primary' })}>
+            <Link href="/app/recherche" className={buttonClasses({ variant: 'primary' })}>
               Rechercher un objet
             </Link>
           }

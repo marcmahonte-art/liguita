@@ -48,7 +48,7 @@ const INITIAL_STATE: SearchState = {
   hasMore: false,
 };
 
-function SearchContent() {
+export function SearchContent() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();

@@ -42,7 +42,7 @@ export function DashboardHero({ firstName }: { firstName: string | null }) {
 
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center">
           <Link
-            href="/rechercher"
+            href="/app/recherche"
             id="hero-search-btn"
             className={buttonClasses({ variant: 'primary', size: 'md', block: true })}
           >

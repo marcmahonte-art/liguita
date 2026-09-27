@@ -73,7 +73,7 @@ export function AppTopBar({ unreadCount, availableBalance }: AppTopBarProps) {
             champ du tout. On le remplace donc par un bouton-icône vers la page de
             recherche : même destination, une seule touche, et l'en-tête reste lisible. */}
         <form
-          action="/rechercher"
+          action="/app/recherche"
           method="get"
           className="mx-auto hidden w-full max-w-[560px] flex-1 sm:block"
           role="search"
@@ -96,7 +96,7 @@ export function AppTopBar({ unreadCount, availableBalance }: AppTopBarProps) {
         </form>
 
         <Link
-          href="/rechercher"
+          href="/app/recherche"
           aria-label="Rechercher un objet"
           className={cn(
             buttonClasses({ variant: 'ghost', size: 'sm' }),

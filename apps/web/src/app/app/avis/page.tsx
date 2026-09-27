@@ -71,7 +71,7 @@ export default function AvisDeRecherchePage() {
             Recevez une alerte quand un objet correspondant est publié (max 3 / jour).
           </p>
         </div>
-        <Link href="/rechercher" className={buttonClasses({ variant: 'primary', size: 'sm' })}>
+        <Link href="/app/recherche" className={buttonClasses({ variant: 'primary', size: 'sm' })}>
           Lancer une recherche
         </Link>
       </div>
@@ -91,7 +91,7 @@ export default function AvisDeRecherchePage() {
           title="Aucun avis de recherche"
           description="Enregistrez une recherche pour être notifié dès qu'un objet correspondant est trouvé."
           action={
-            <Link href="/rechercher" className={buttonClasses({ variant: 'primary' })}>
+            <Link href="/app/recherche" className={buttonClasses({ variant: 'primary' })}>
               Rechercher un objet
             </Link>
           }
